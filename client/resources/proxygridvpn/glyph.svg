@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Monochrome ProxyGridVPN glyph for the macOS menu bar, Android notifications and tray use. -->
+  <g stroke="#000" stroke-width="84" stroke-linecap="round">
+    <path d="M349 180V844M675 180V560M180 349H844M180 675H560"/>
+  </g>
+  <circle cx="700" cy="700" r="150" fill="#000"/>
+</svg>

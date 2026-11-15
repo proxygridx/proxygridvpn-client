@@ -1,0 +1,27 @@
+ProxyGridVPN client
+Copyright 2026 ProxyGrid
+
+This product is independently developed by ProxyGrid from open-source components. It is not
+affiliated with, sponsored by or endorsed by the Outline Foundation, Jigsaw, Google LLC or the
+maintainers of the projects listed below.
+
+This product includes software from the Outline client (https://github.com/OutlineFoundation/outline-apps),
+Copyright The Outline Authors, licensed under the Apache License, Version 2.0. Files that came
+from Outline keep their original copyright headers; ProxyGrid changes are licensed under the same
+terms.
+
+This product includes the Outline SDK (https://github.com/OutlineFoundation/outline-sdk),
+Copyright The Outline Authors, licensed under the Apache License, Version 2.0.
+
+Bundled third-party components under third_party/ keep their own licenses (see the LICENSE and
+METADATA files in each directory): tap-windows6 (MIT/GPLv2 dual license), jsign (Apache 2.0),
+Newtonsoft.Json (MIT) and sentry-android (BSD 3-Clause).
+
+Licenses of other third-party dependencies are listed in the app (About > Licenses) and in
+client/web/views/licenses_view/licenses/licenses.txt.
+
+"Outline" is a trademark of its respective owner and is used here only to describe the origin of
+the code.
+
+The ProxyGrid, ProxyGridVPN and ProxyGridX names and logos (docs/brand, client/resources/proxygridvpn)
+are trademarks of ProxyGrid and are not licensed under the Apache License.

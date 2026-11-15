@@ -1,10 +1,14 @@
-# <img alt="Outline Client Logo" src="../docs/resources/logo_client.png" title="Outline Client" width="32">&nbsp;&nbsp;Outline Client
+# ProxyGridVPN client
 
-![Build and Test](https://github.com/OutlineFoundation/outline-apps/actions/workflows/build_and_test_debug_client.yml/badge.svg?branch=master) 
+This directory holds the ProxyGridVPN apps for Windows, macOS, iOS, Android and Debian-based
+Linux. ProxyGridVPN is built on the open-source [Outline client](https://github.com/OutlineFoundation/outline-apps)
+and works with ProxyGrid accounts and with any Outline-compatible
+[Shadowsocks](https://shadowsocks.org/) server.
 
-The Outline Client is a cross-platform VPN or proxy client for Windows, macOS, iOS, Android, and Debian-based Linux. The Outline Client is designed for use with the [Outline Server](https://github.com/OutlineFoundation/outline-server) software, but it is fully compatible with any [Shadowsocks](https://shadowsocks.org/) server.
-
-The client's user interface is implemented in [Polymer](https://www.polymer-project.org/) 2.0. Platform support is provided by [Cordova](https://cordova.apache.org/) and [Electron](https://electronjs.org/), with additional native components in this repository.
+The user interface is built with [Lit](https://lit.dev/) and Polymer web components. Platform
+support comes from [Cordova](https://cordova.apache.org/) (iOS, macOS, Android) and
+[Electron](https://electronjs.org/) (Windows, Linux), with native and Go components in this
+repository.
 
 
 ## Requirements for all builds
@@ -21,7 +25,7 @@ npm install
 
 ## Building the shared web app
 
-Outline clients share the same web app across all platforms. This code is located in the web directory. If you are making changes to the shared web app and do not need to test platform-specific functionality, you can test in a desktop browser by running:
+The apps share the same web app across all platforms. This code is located in the web directory. If you are making changes to the shared web app and do not need to test platform-specific functionality, you can test in a desktop browser by running:
 
 ```sh
 npm run action client/web/start
@@ -57,7 +61,7 @@ SENTRY_DSN=<your sentry dsn> npm run action client/src/cordova/setup macos -- --
 
 ## Life of a Packet
 
-[How does the Outline Client work?](/docs/life_of_a_packet.md)
+[How does the client work?](/docs/life_of_a_packet.md)
 
 ## Accepting a server invite
 

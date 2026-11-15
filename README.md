@@ -1,21 +1,101 @@
-# <img alt="Outline Manager Logo" src="docs/resources/logo_manager.png" title="Outline Manager" width="32">&nbsp;&nbsp;Outline Apps&nbsp;&nbsp;<img alt="Outline Client Logo" src="docs/resources/logo_client.png" title="Outline Client" width="32">
+<p align="center">
+  <img src="docs/images/logo-mark.svg" alt="ProxyGridVPN" width="96">
+</p>
 
-[![Reddit](https://badgen.net/badge/Reddit/r%2Foutlinevpn/orange)](https://www.reddit.com/r/outlinevpn/) [![Mattermost](https://badgen.net/badge/Mattermost/Outline%20Community/blue)](https://community.internetfreedomfestival.org/community/channels/outline-community) [![Code Style: Google](https://img.shields.io/badge/code%20style-google-blueviolet.svg)](https://github.com/google/gts)
+<h1 align="center">ProxyGridVPN client</h1>
 
-Outline makes it easy for anyone to create a VPN server, allowing you to share access to the free and open internet with those in need. **We have two core applications:**
+<p align="center">
+  The open-source VPN client for <a href="https://proxygrid.net">ProxyGrid</a>, and for any
+  Outline-compatible server you run yourself.
+</p>
 
-&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Outline Manager Logo" src="docs/resources/logo_manager.png" title="Outline Manager" width="14">&nbsp;&nbsp;**Outline Manager** ([`/server_manager`](server_manager)): A graphical user interface for managing Outline servers. It is available for Windows, macOS, and Linux. [You can install the manager here](https://getoutline.org/get-started/#step-1). See [`server_manager/README.md`](./server_manager/README.md) for more information.
+<p align="center">
+  <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
+  <a href="https://github.com/proxygridx/proxygridvpn-client/actions/workflows/proxygridvpn_builds.yml"><img alt="Builds" src="https://github.com/proxygridx/proxygridvpn-client/actions/workflows/proxygridvpn_builds.yml/badge.svg"></a>
+</p>
 
+ProxyGridVPN is a cross-platform VPN client. Its source code is public so anyone can inspect it,
+review its security and contribute. The ProxyGrid hosted VPN service (accounts, API, billing and
+servers) is operated privately and is **not** part of this repository.
 
-&nbsp;&nbsp;&nbsp;&nbsp;<img alt="Outline Client Logo" src="docs/resources/logo_client.png" title="Outline Client" width="14">&nbsp;&nbsp;**Outline Client** ([`/client`](client)): A cross-platform proxy client for Windows, macOS, iOS, Android, and Linux. The Outline Client is designed for use with the server deployed with the Outline Manager, but it is also fully compatible with any [Shadowsocks](https://shadowsocks.org/) server. [You can install the client here](https://getoutline.org/get-started/#step-3). See [`client/README.md`](./client/README.md) for more information.
+<p align="center">
+  <img src="docs/images/screenshot-account.png" alt="ProxyGrid account mode: sign in, pick a location, connect" width="320">
+  &nbsp;
+  <img src="docs/images/screenshot-own-servers.png" alt="My own servers mode with an Outline-compatible key" width="320">
+</p>
 
+## Features
 
-## Community and Support
+- **ProxyGrid account mode.** Sign in with your proxygrid.net account, pick a location and
+  connect. The app fetches your access key for you and shows how much data is left in your plan.
+- **My own servers mode.** Add `ss://` or `ssconf://` access keys for any Outline-compatible
+  Shadowsocks server. These keys never go to ProxyGrid and have no ProxyGrid limits.
+- **Keys in the OS keychain.** Access keys are stored with Apple Keychain, the Android Keystore or
+  Electron safeStorage.
+- **Installs beside Outline.** Separate app IDs, URL scheme (`proxygridvpn://`), Windows service
+  and network adapter names, so it does not conflict with the official Outline app.
+- **Stability fixes** over the upstream client: DNS burst handling without sharing UDP
+  associations (RFC 5452 kept), network-change and wake handling, tunnel start/stop races and
+  packet-relay robustness. See [docs/proxygridvpn/STABILITY.md](docs/proxygridvpn/STABILITY.md).
 
-Interested in **contributing to Outline?** See our [Contributing Guide](CONTRIBUTING.md) for more information.
+## Platforms
 
-See [AGENTS.md](./AGENTS.md) for AI agent and developer guidance.
+ProxyGridVPN has **not had a public release yet**. A platform is listed as supported only once a
+build has been tested end to end on real devices.
 
-You can also **join the Outline Community** by signing up for the [IFF Mattermost](https://wiki.digitalrights.community/index.php?title=IFF_Mattermost)!
+| Platform | Minimum OS | Status |
+|---|---|---|
+| macOS | 12.4 | Builds and signs (development); device testing in progress |
+| Windows | 10 / 11 | Unsigned installers built in CI; device testing in progress |
+| Android | 10 | Debug builds in CI; device testing in progress |
+| iOS | 15.5 | Builds and signs (development); device testing in progress |
+| Linux (Debian-based) | — | Builds from source; not tested |
 
-For customer support and to **contact us directly**, go to https://support.getoutline.org.
+Downloads will be published on [proxygrid.net](https://proxygrid.net) and in this repository's
+Releases once builds are signed and tested.
+
+## Building
+
+You need [Node.js](https://nodejs.org/) 22 and [Go](https://go.dev/) (version in `go.mod`), plus
+the per-platform tools (Xcode for Apple platforms, Android Studio / JDK 17 for Android, Visual
+Studio build tools for the Windows helpers).
+
+```sh
+npm ci
+npm run action client/web/start          # the shared UI in a browser, with fake servers
+npm run action client/web/test           # web unit tests
+go test -race ./client/go/...            # Go core tests
+npm run action client/electron/build windows -- --arch ia32
+npm run action client/src/cordova/build android
+npm run action client/src/cordova/setup macos   # then open client/src/cordova/apple/client.xcworkspace
+```
+
+ProxyGrid account sign-in is enabled at build time with the public sign-in identifiers in
+`PROXYGRID_COGNITO_REGION`, `PROXYGRID_USER_POOL_ID` and `PROXYGRID_USER_POOL_CLIENT_ID`. Without
+them the app runs in own-server mode only. To sign and distribute your own builds, use your own
+signing identities and app IDs. More detail: [client/README.md](client/README.md) and
+[docs/life_of_a_packet.md](docs/life_of_a_packet.md).
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: changes need tests
+and must pass CI. Open an issue to discuss larger changes before starting.
+
+## Security
+
+Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Do not open
+public issues for security problems.
+
+## License and acknowledgements
+
+ProxyGridVPN is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE).
+
+ProxyGridVPN is independently developed by ProxyGrid from the open-source
+[Outline client](https://github.com/OutlineFoundation/outline-apps) by The Outline Authors and is
+powered by [Shadowsocks](https://shadowsocks.org/). It is not affiliated with or endorsed by the
+Outline Foundation, Jigsaw or Google. Third-party licenses are listed in the app under
+About > Licenses.
+
+---
+
+[proxygrid.net](https://proxygrid.net)

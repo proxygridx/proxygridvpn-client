@@ -1,4 +1,4 @@
-# <img alt="Outline Client Logo" src="../docs/resources/logo_client.png" title="Outline Client" width="32">&nbsp;&nbsp;Outline Client
+# ProxyGridVPN client
 
 This document provides a guide for AI and human agents working on the Outline Client.
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- ProxyGridVPN foreground layer (no background), for Icon Composer and Android adaptive icons. -->
+  <g stroke="#FFFFFF" stroke-width="60" stroke-linecap="round" stroke-opacity="0.92">
+    <path d="M349 233V791M675 233V791M233 349H791M233 675H791"/>
+  </g>
+  <circle cx="675" cy="675" r="116" fill="#0E9F6E" stroke="#FFFFFF" stroke-width="51"/>
+</svg>

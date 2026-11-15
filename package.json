@@ -21,7 +21,6 @@
   "private": true,
   "workspaces": [
     "infrastructure",
-    "server_manager",
     "client",
     "client/capacitor"
   ],

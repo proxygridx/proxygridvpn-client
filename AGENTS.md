@@ -11,10 +11,9 @@ Before making changes, read [`CONTRIBUTING.md`](CONTRIBUTING.md). Its rules appl
 
 ## Repository Structure
 
-The Outline monorepo is organized into three main components:
+The repository is organized into two main components:
 
 *   `/client`: The Outline Client application, available on all major platforms. See [`client/AGENTS.md`](client/AGENTS.md).
-*   `/server_manager`: A graphical application to create and manage Outline Servers. See [`server_manager/AGENTS.md`](server_manager/AGENTS.md).
 *   `/infrastructure`: The build system and shared TypeScript utilities. See [`infrastructure/AGENTS.md`](infrastructure/AGENTS.md).
 
 ## The `npm run action` Command
@@ -29,7 +28,6 @@ npm run action client/src/cordova/setup macos -- --buildMode=release
 
 *   `npm run action list`: Lists all available actions.
 *   `npm run action client/web/start`: Starts a dev server for the shared web UI.
-*   `npm run action server_manager/www/start`: Starts a dev server for the Manager UI.
 *   `npm run action <component>/test`: Runs tests (e.g. `npm run action client/web/test`).
 *   `npm run action <component>/build`: Builds a component (e.g. `npm run action client/electron/build linux -- --arch=x64`).
 
@@ -61,5 +59,5 @@ Platform-specific requirements (Android SDK, Xcode, zig for cross-compilation) a
 *   **Server Manager**: The application used to create and manage Outline servers on cloud providers.
 *   **Electron**: Framework used to build the desktop versions of the Outline Client and Server Manager.
 *   **Cordova**: Framework used to build the mobile (iOS/Android) and macOS versions of the Outline Client.
-*   **Lit**: The UI framework for web components. All new components use Lit. The client has fully migrated; the server_manager still has legacy Polymer components in its app shell being migrated.
+*   **Lit**: The UI framework for web components. All new components use Lit; the client app shell still has some Polymer elements.
 *   **OutlineAction**: A custom build script (`.action.sh` or `.action.mjs`) that defines a task runnable via `npm run action`.

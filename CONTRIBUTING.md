@@ -36,7 +36,7 @@ external contributors. A maintainer has to approve each run, so it may take a
 while for results to show up on your pull request. To get faster feedback, you
 can run CI in your own fork: enable GitHub Actions on your fork (free for open
 source projects), then open a pull request within your fork from your feature
-branch into your fork's `master` branch. CI runs there without waiting for a maintainer's approval.
+branch into your fork's `main` branch. CI runs there without waiting for a maintainer's approval.
 
 ## AI-generated contributions
 

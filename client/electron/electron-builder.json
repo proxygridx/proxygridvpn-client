@@ -1,12 +1,12 @@
 {
-  "productName": "Outline",
-  "artifactName": "Outline-Client-${arch}.${ext}",
+  "productName": "ProxyGridVPN",
+  "artifactName": "ProxyGridVPN-${version}-${arch}.${ext}",
   "directories": {
     "buildResources": "output/client/electron",
     "output": "output/client/electron/build"
   },
   "extraMetadata": {
-    "name": "outline-client",
+    "name": "proxygrid-vpn",
     "main": "output/client/electron/index.js"
   },
   "files": [
@@ -27,9 +27,9 @@
   },
   "linux": {
     "category": "Network",
-    "executableName": "Outline",
+    "executableName": "proxygrid-vpn",
     "icon": "client/electron/icons/png",
-    "maintainer": "Outline Foundation"
+    "maintainer": "ProxyGrid <contact@proxygrid.net>"
   },
   "nsis": {
     "include": "client/electron/custom_install_steps.nsh",
@@ -43,5 +43,14 @@
         "sha256"
       ]
     }
-  }
+  },
+  "appId": "net.proxygrid.vpn.desktop",
+  "protocols": [
+    {
+      "name": "ProxyGridVPN",
+      "schemes": [
+        "proxygridvpn"
+      ]
+    }
+  ]
 }

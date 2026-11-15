@@ -26,7 +26,7 @@ function getAbsolutePath(value) {
 
 /** @type { import('@storybook/web-components-vite').StorybookConfig } */
 const config = {
-  stories: ['../client/**/stories.ts', '../server_manager/**/stories.ts'],
+  stories: ['../client/**/stories.ts'],
   addons: [
     // NOTE: This will need to switch to @vueless/storybook-dark-mode when upgrading to Storybook v9
     getAbsolutePath('storybook-dark-mode'),
