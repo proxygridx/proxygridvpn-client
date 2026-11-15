@@ -95,6 +95,8 @@ function Connect-Vpn([string]$label) {
   $targs = @('-keyID', 'ci-test', '-tunName', 'proxygrid-tap0', '-tunAddr', '10.0.86.2', '-tunGw', '10.0.86.1',
     '-tunMask', '255.255.255.0', '-tunDNS', '169.254.113.53', '-client', "`"$clientConfig`"", '-logLevel', 'debug')
   if ($r.gatewayAdapterIndex) { $targs += @('-adapterIndex', $r.gatewayAdapterIndex) }
+  # Debug logs from the Go libraries (DNS interception, UDP health) go to stderr only with this set.
+  $env:OUTLINE_DEBUG = '1'
   $script:tun = Start-Process -FilePath $tun2socks.FullName -ArgumentList $targs `
     -RedirectStandardOutput $script:tunLog -RedirectStandardError "$($script:tunLog).err" -PassThru -WindowStyle Hidden
   Start-Sleep -Seconds 5
@@ -108,7 +110,54 @@ function Disconnect-Vpn([string]$label) {
   Start-Sleep -Seconds 3
 }
 
+# Runs only after a traffic check failed, to record the state behind the failure. It changes no
+# check result.
+function Show-Diagnostics([string]$label) {
+  Write-Host "  --- diagnostics after failed $label checks ---"
+  $tapIf = Get-NetAdapter -IncludeHidden -Name 'proxygrid-tap0' -ErrorAction SilentlyContinue
+  if ($tapIf) { Write-Host "  adapter: status=$($tapIf.Status) media=$($tapIf.MediaConnectionState) ifIndex=$($tapIf.ifIndex)" }
+  Get-NetIPAddress -InterfaceAlias 'proxygrid-tap0' -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    ForEach-Object { Write-Host "  tap address: $($_.IPAddress) state=$($_.AddressState) origin=$($_.PrefixOrigin)" }
+  Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object ConnectionState -eq 'Connected' |
+    ForEach-Object { Write-Host "  interface: $($_.InterfaceAlias) metric=$($_.InterfaceMetric) dhcp=$($_.Dhcp)" }
+  Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object ServerAddresses |
+    ForEach-Object { Write-Host "  dns servers: $($_.InterfaceAlias) = $($_.ServerAddresses -join ',')" }
+  Get-NetConnectionProfile -ErrorAction SilentlyContinue |
+    ForEach-Object { Write-Host "  profile: $($_.InterfaceAlias) category=$($_.NetworkCategory) ipv4=$($_.IPv4Connectivity)" }
+  $s0 = Stats
+  $tcpOk = $false
+  try {
+    $c = New-Object System.Net.Sockets.TcpClient
+    $tcpOk = $c.ConnectAsync('1.1.1.1', 443).Wait(5000) -and $c.Connected
+    $c.Dispose()
+  } catch { }
+  $s1 = Stats
+  Write-Host "  TCP to 1.1.1.1:443 by IP: connected=$tcpOk; server tcp $($s0.tcp) -> $($s1.tcp)"
+  foreach ($mode in @('udp', 'tcp')) {
+    $t0 = Get-Date
+    try {
+      if ($mode -eq 'tcp') { $r = Resolve-DnsName -Name 'example.net' -Type A -Server 169.254.113.53 -DnsOnly -TcpOnly -ErrorAction Stop }
+      else { $r = Resolve-DnsName -Name 'example.net' -Type A -Server 169.254.113.53 -DnsOnly -QuickTimeout -ErrorAction Stop }
+      Write-Host "  DNS over $mode straight to 169.254.113.53: ok in $([int]((Get-Date) - $t0).TotalMilliseconds) ms"
+    } catch { Write-Host "  DNS over $mode straight to 169.254.113.53: $($_.Exception.Message)" }
+  }
+  $s2 = Stats
+  Write-Host "  server counters after direct DNS: tcp=$($s2.tcp) dns=$($s2.dns)"
+  $start = Get-Date
+  $okAt = $null
+  while (((Get-Date) - $start).TotalSeconds -lt 60) {
+    Clear-DnsClientCache
+    try {
+      if (Resolve-DnsName -Name 'www.wikipedia.org' -Type A -DnsOnly -QuickTimeout -ErrorAction Stop) { $okAt = ((Get-Date) - $start).TotalSeconds; break }
+    } catch { }
+    Start-Sleep -Seconds 2
+  }
+  if ($null -ne $okAt) { Write-Host ("  system DNS started working {0:N0} s after the checks failed" -f $okAt) }
+  else { Write-Host '  system DNS still failing after 60 s' }
+}
+
 function Test-Traffic([string]$label) {
+  $failedBefore = $failures.Count
   $before = Stats
   Check "$label default route uses the tunnel (0.0.0.0/1 via proxygrid-tap0)" {
     $null -ne (Get-NetRoute -DestinationPrefix '0.0.0.0/1' -ErrorAction Stop | Where-Object { $_.InterfaceAlias -eq 'proxygrid-tap0' })
@@ -134,7 +183,7 @@ function Test-Traffic([string]$label) {
       $from = [System.Net.IPEndPoint]::new([System.Net.IPAddress]::Any, 0)
       try { [void]$udp.Receive([ref]$from); $false } catch { $true }
     } finally { $udp.Dispose() }
-  }
+  }  if ($failures.Count -gt $failedBefore) { Show-Diagnostics $label }
 }
 
 try {
@@ -157,7 +206,11 @@ try {
   foreach ($n in 1..$script:connectCount) {
     $log = Join-Path $tmp "tun2socks-$n.log"
     Write-Host "`n--- tun2socks log, connect $n (tail) ---"
-    Get-Content "$log.err", $log -ErrorAction SilentlyContinue | Select-Object -Last 30
+    $lines = @(Get-Content "$log.err", $log -ErrorAction SilentlyContinue)
+    # The debug log is long: keep the health, DNS and error lines, then the tail.
+    $lines | Where-Object { $_ -match 'health|UDP|DNS|dns|relay|level=(WARN|ERROR)' } | Select-Object -First 60
+    Write-Host '  ...'
+    $lines | Select-Object -Last 20
   }
 }
 
