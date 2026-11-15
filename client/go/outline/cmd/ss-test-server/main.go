@@ -40,11 +40,30 @@ var (
 	dnsPkts  atomic.Int64
 )
 
+// outboundIP is the source address for connections to targets. When the server runs on the same
+// machine as the VPN client, binding to the physical adapter's address keeps these connections out
+// of the tunnel (Windows sends from the adapter that owns the source address); otherwise they would
+// loop back through the client into this server.
+var outboundIP net.IP
+
+func dialer(timeout time.Duration) *net.Dialer {
+	d := &net.Dialer{Timeout: timeout}
+	if outboundIP != nil {
+		d.LocalAddr = &net.TCPAddr{IP: outboundIP}
+	}
+	return d
+}
+
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8488", "address to listen on (TCP and UDP)")
 	cipher := flag.String("cipher", "chacha20-ietf-poly1305", "AEAD cipher")
 	secret := flag.String("secret", "", "shared secret (required)")
 	flag.Parse()
+	if host, _, err := net.SplitHostPort(*listen); err == nil {
+		if ip := net.ParseIP(host); ip != nil && !ip.IsLoopback() && !ip.IsUnspecified() {
+			outboundIP = ip
+		}
+	}
 	if *secret == "" {
 		log.Fatal("-secret is required")
 	}
@@ -135,7 +154,7 @@ func handleTCP(c net.Conn, key *shadowsocks.EncryptionKey) {
 	if err != nil {
 		return
 	}
-	tc, err := net.DialTimeout("tcp", dst, 10*time.Second)
+	tc, err := dialer(10*time.Second).Dial("tcp", dst)
 	if err != nil {
 		return
 	}
@@ -179,7 +198,11 @@ func serveUDP(pc net.PacketConn, key *shadowsocks.EncryptionKey) {
 		mu.Lock()
 		conn, ok := assocs[client.String()]
 		if !ok {
-			conn, err = net.ListenUDP("udp", nil)
+			var laddr *net.UDPAddr
+			if outboundIP != nil {
+				laddr = &net.UDPAddr{IP: outboundIP}
+			}
+			conn, err = net.ListenUDP("udp", laddr)
 			if err != nil {
 				mu.Unlock()
 				continue
@@ -214,7 +237,7 @@ func serveUDP(pc net.PacketConn, key *shadowsocks.EncryptionKey) {
 }
 
 func answerDNSOverTCP(pc net.PacketConn, client net.Addr, key *shadowsocks.EncryptionKey, server *net.UDPAddr, query []byte) {
-	c, err := net.DialTimeout("tcp", net.JoinHostPort(server.IP.String(), "53"), 5*time.Second)
+	c, err := dialer(5*time.Second).Dial("tcp", net.JoinHostPort(server.IP.String(), "53"))
 	if err != nil {
 		return
 	}
