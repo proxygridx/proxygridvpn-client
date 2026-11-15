@@ -85,8 +85,9 @@ export async function main(...parameters) {
   if (!prepackaged) {
     await runAction('client/web/build', ...parameters);
     await runAction('client/go/build', ...parameters);
-    await runAction('client/electron/build_main', ...parameters);
   }
+  // Also needed when prepackaged: it writes env.nsh, which the NSIS installer script includes.
+  await runAction('client/electron/build_main', ...parameters);
 
   await fs.mkdir(
     path.join(getRootDir(), ELECTRON_BUILD_DIR, 'client', 'electron'),
