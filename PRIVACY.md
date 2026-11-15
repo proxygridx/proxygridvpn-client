@@ -20,7 +20,7 @@ build sets `SENTRY_DSN`; builds from this repository's public workflow do not se
 send no crash reports.
 
 If you use only your own servers ("My own servers" mode), the app never contacts ProxyGrid,
-apart from the update check on Windows and Linux.
+apart from the update check on Windows and Linux, which you can turn off.
 
 ## What is stored on your device
 
@@ -34,8 +34,8 @@ Keychain Access.
 
 - Don't sign in to ProxyGrid, and the app makes no ProxyGrid account requests.
 - Remove a server or sign out to delete its key from the device.
-- Automatic update checks can't be turned off in the app yet. Until they can, you can block the
-  update address in your firewall. A setting is planned.
+- Turn off automatic update checks on Windows and Linux under **About > Check for updates
+  automatically**. When it is off, the app makes no update requests.
 
 ## Contact
 

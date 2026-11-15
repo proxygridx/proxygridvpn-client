@@ -101,8 +101,8 @@ Free code signing provided by [SignPath.io](https://about.signpath.io), certific
 
 ## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: changes need tests
-and must pass CI. Open an issue to discuss larger changes before starting.
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[code of conduct](CODE_OF_CONDUCT.md) first: changes need tests and must pass CI. Open an issue to discuss larger changes before starting.
 
 ## Security
 

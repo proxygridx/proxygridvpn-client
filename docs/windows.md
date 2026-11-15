@@ -7,15 +7,17 @@
    [Releases](https://github.com/proxygridx/proxygridvpn-client/releases). Windows 10 or 11 is
    required.
 2. [Verify the download](#verify-a-download).
-3. Run the installer and accept the administrator prompt.
+3. Run the installer. Its first page explains what it changes and which network connections the
+   app makes; then accept the administrator prompt.
 
 ### What the installer changes
 
 The installer needs administrator rights because a VPN changes system networking. It:
 
 - installs the app in `C:\Program Files\ProxyGridVPN`;
-- installs the TAP-Windows6 virtual network driver (signed by Microsoft for OpenVPN) and
-  creates an adapter named `proxygrid-tap0`. Windows may ask you to confirm the driver;
+- adds the TAP-Windows6 virtual network driver (signed by Microsoft for OpenVPN) with the
+  built-in `pnputil`, and creates one adapter named `proxygrid-tap0` with OpenVPN's `tapctl`.
+  Windows may ask you to confirm the driver;
 - installs the `ProxyGridVPNService` Windows service, which sets routes and DNS while the VPN is
   connected and restores them when it disconnects;
 - adds Start menu and desktop shortcuts and the `proxygridvpn://` link handler.
@@ -33,6 +35,9 @@ app, so both can be installed at the same time.
    the Windows driver store, because other apps (such as OpenVPN or Outline) may use it. To
    remove it, run `pnputil /enum-drivers`, find the `oemNN.inf` whose original name is
    `oemvista.inf` from provider TAP-Windows Provider V9, and run `pnputil /delete-driver oemNN.inf`.
+   If an adapter is left behind (for example after an interrupted uninstall), open
+   **Device Manager > Network adapters**, right-click the TAP-Windows Adapter V9 named
+   `proxygrid-tap0`, and choose **Uninstall device**.
 3. To delete saved keys and settings, delete the folders `%APPDATA%\ProxyGridVPN` and `%APPDATA%\net.proxygrid.vpn`.
 
 ## Components
@@ -46,10 +51,12 @@ app, so both can be installed at the same time.
 | TAP-Windows6 (`tap0901.sys`) | Virtual network adapter driver (signed by Microsoft for OpenVPN) | Upstream binaries in `third_party/tap-windows6` |
 | `tapctl.exe` | Creates and removes the `proxygrid-tap0` adapter (GPLv2, see `third_party/tap-windows6/TAPCTL.txt`) | Built from pinned OpenVPN source by `client/electron/windows/tapctl/build_tapctl.ps1` |
 
+Every file with its origin, licence and signing treatment: [windows-binaries.md](windows-binaries.md).
+
 ## Build from source
 
-Requirements: Windows 10 or 11, Node.js 22, Go (version in `go.mod`), Zig 0.13, and Visual
-Studio 2022 Build Tools with MSBuild and the C++ toolset.
+Requirements: Windows 10 or 11, Node.js 22, Go (version in `go.mod`), Zig 0.13, git, and Visual
+Studio 2022 Build Tools with MSBuild and the C++ x86/x64 and ARM64 toolsets.
 
 ```powershell
 npm ci
