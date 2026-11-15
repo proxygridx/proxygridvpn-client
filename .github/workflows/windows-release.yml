@@ -219,13 +219,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      # Local test Shadowsocks server (CI only, not shipped) for the VPN session test.
+      - run: go build -o ss-test-server.exe ./client/go/outline/cmd/ss-test-server
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: installer-ia32
           path: dist
-      - name: Install, check, uninstall, check
+      - name: Install, check, VPN session test, uninstall, check
         shell: pwsh
-        run: pwsh client/electron/windows/test/installer_smoke_test.ps1 -Installer (Get-ChildItem dist\*-ia32.exe | Select-Object -First 1).FullName
+        run: |
+          pwsh client/electron/windows/test/installer_smoke_test.ps1 `
+            -Installer (Get-ChildItem dist\*-ia32.exe | Select-Object -First 1).FullName `
+            -SessionServerExe (Resolve-Path ss-test-server.exe).Path
 
   collect-installers:
     needs: [package, installer-smoke-test]

@@ -15,7 +15,11 @@
 # Silent install / uninstall check for the ProxyGridVPN Windows installer. Run as Administrator
 # on a disposable machine (used by CI on a fresh GitHub-hosted runner). It does not connect a VPN.
 
-param([Parameter(Mandatory = $true)][string]$Installer)
+param(
+  [Parameter(Mandatory = $true)][string]$Installer,
+  # Optional: run vpn_session_test.ps1 against this test Shadowsocks server before uninstalling.
+  [string]$SessionServerExe = ''
+)
 
 $ErrorActionPreference = 'Stop'
 $failures = New-Object System.Collections.Generic.List[string]
@@ -65,6 +69,13 @@ Check 'adapter DNS is 169.254.113.53' {
 }
 Check 'exactly one TAP-Windows6 adapter' {
   @(Get-NetAdapter -IncludeHidden | Where-Object { $_.InterfaceDescription -like 'TAP-Windows Adapter V9*' }).Count -eq 1
+}
+
+if ($dir -and $SessionServerExe) {
+  Write-Host "`n=== VPN session test ==="
+  & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'vpn_session_test.ps1') -InstallDir $dir -ServerExe $SessionServerExe
+  Check 'VPN session test' { $LASTEXITCODE -eq 0 }
+  Write-Host "=== end of VPN session test ===`n"
 }
 
 if ($dir) {
