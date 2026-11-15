@@ -183,7 +183,8 @@ function Test-Traffic([string]$label) {
       $from = [System.Net.IPEndPoint]::new([System.Net.IPAddress]::Any, 0)
       try { [void]$udp.Receive([ref]$from); $false } catch { $true }
     } finally { $udp.Dispose() }
-  }  if ($failures.Count -gt $failedBefore) { Show-Diagnostics $label }
+  }
+  if ($failures.Count -gt $failedBefore) { Show-Diagnostics $label }
 }
 
 try {
@@ -208,7 +209,7 @@ try {
     Write-Host "`n--- tun2socks log, connect $n (tail) ---"
     $lines = @(Get-Content "$log.err", $log -ErrorAction SilentlyContinue)
     # The debug log is long: keep the health, DNS and error lines, then the tail.
-    $lines | Where-Object { $_ -match 'health|UDP|DNS|dns|relay|level=(WARN|ERROR)' } | Select-Object -First 60
+    $lines | Where-Object { $_ -match 'health|UDP|DNS|dns|relay|level=(WARN|ERROR)' } | Select-Object -First 120
     Write-Host '  ...'
     $lines | Select-Object -Last 20
   }
