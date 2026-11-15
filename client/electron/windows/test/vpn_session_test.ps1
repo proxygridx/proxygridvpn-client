@@ -131,6 +131,8 @@ function Show-Diagnostics([string]$label) {
     $tcpOk = $c.ConnectAsync('1.1.1.1', 443).Wait(5000) -and $c.Connected
     $c.Dispose()
   } catch { }
+  # The server prints its counters every 2 s.
+  Start-Sleep -Milliseconds 2500
   $s1 = Stats
   Write-Host "  TCP to 1.1.1.1:443 by IP: connected=$tcpOk; server tcp $($s0.tcp) -> $($s1.tcp)"
   foreach ($mode in @('udp', 'tcp')) {
@@ -141,6 +143,7 @@ function Show-Diagnostics([string]$label) {
       Write-Host "  DNS over $mode straight to 169.254.113.53: ok in $([int]((Get-Date) - $t0).TotalMilliseconds) ms"
     } catch { Write-Host "  DNS over $mode straight to 169.254.113.53: $($_.Exception.Message)" }
   }
+  Start-Sleep -Milliseconds 2500
   $s2 = Stats
   Write-Host "  server counters after direct DNS: tcp=$($s2.tcp) dns=$($s2.dns)"
   $start = Get-Date
