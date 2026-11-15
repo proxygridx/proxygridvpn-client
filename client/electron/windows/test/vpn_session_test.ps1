@@ -38,7 +38,14 @@ $tunLog = Join-Path $tmp 'tun2socks.log'
 # Throwaway secret for the local test server only.
 $secret = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
 $userInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("chacha20-ietf-poly1305:$secret")).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-$clientConfig = "transport: ss://$userInfo@127.0.0.1:8488"
+# tun2socks binds its sockets to the physical adapter (to keep them out of the tunnel), and a socket
+# bound there cannot reach 127.0.0.1. Run the test server on this machine's own address on the
+# default-route adapter instead, like a real server outside the tunnel.
+$serverIp = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
+  Select-Object -First 1).IPv4Address.IPAddress
+if (-not $serverIp) { throw 'no IPv4 address on the default-route adapter' }
+Write-Host "  test server address: $serverIp"
+$clientConfig = "transport: ss://$userInfo@${serverIp}:8488"
 
 function Stats {
   $line = Get-Content $serverLog -ErrorAction SilentlyContinue | Where-Object { $_ -like 'STATS *' } | Select-Object -Last 1
@@ -66,15 +73,16 @@ function Send-Routing([hashtable]$request) {
 $tun2socks = Get-ChildItem -Path (Join-Path $InstallDir 'resources') -Recurse -Filter tun2socks.exe | Select-Object -First 1
 Check 'installed tun2socks.exe found' { $null -ne $tun2socks }
 
-$server = Start-Process -FilePath $ServerExe -ArgumentList '-listen', '127.0.0.1:8488', '-secret', $secret `
+New-NetFirewallRule -DisplayName 'ProxyGridVPN CI test server' -Direction Inbound -Action Allow `
+  -Program $ServerExe -Profile Any | Out-Null
+$server = Start-Process -FilePath $ServerExe -ArgumentList '-listen', "${serverIp}:8488", '-secret', $secret `
   -RedirectStandardOutput $serverLog -RedirectStandardError (Join-Path $tmp 'server.err') -PassThru -WindowStyle Hidden
 Start-Sleep -Seconds 2
 
 $tun = $null
 function Connect-Vpn([string]$label) {
-  # The app routes the proxy server around the tunnel; the test server is on loopback, which never
-  # uses the tunnel, so a documentation address (TEST-NET-1) stands in for it.
-  $r = Send-Routing @{ action = 'configureRouting'; parameters = @{ proxyIp = '192.0.2.1'; isAutoConnect = 'false' } }
+  # As in the app, the proxy server's address is routed around the tunnel.
+  $r = Send-Routing @{ action = 'configureRouting'; parameters = @{ proxyIp = $serverIp; isAutoConnect = 'false' } }
   Check "$label configureRouting succeeds" { $r.statusCode -eq 0 }
   $targs = @('-keyID', 'ci-test', '-tunName', 'proxygrid-tap0', '-tunAddr', '10.0.86.2', '-tunGw', '10.0.86.1',
     '-tunMask', '255.255.255.0', '-tunDNS', '169.254.113.53', '-client', "`"$clientConfig`"", '-logLevel', 'debug')
@@ -127,6 +135,7 @@ try {
 } finally {
   if ($tun -and -not $tun.HasExited) { Stop-Process -Id $tun.Id -Force }
   if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+  Remove-NetFirewallRule -DisplayName 'ProxyGridVPN CI test server' -ErrorAction SilentlyContinue
   Write-Host "`n--- tun2socks log (tail) ---"; Get-Content "$tunLog.err", $tunLog -ErrorAction SilentlyContinue | Select-Object -Last 40
 }
 
