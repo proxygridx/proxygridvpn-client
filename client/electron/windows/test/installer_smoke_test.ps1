@@ -61,6 +61,12 @@ Check 'ProxyGridVPNService installed and running' {
   (Get-Service -Name ProxyGridVPNService -ErrorAction Stop).Status -eq 'Running'
 }
 Check 'adapter proxygrid-tap0 exists' { $null -ne (Get-NetAdapter -Name 'proxygrid-tap0' -ErrorAction Stop) }
+# tun2socks only opens a TAP adapter whose ComponentId is exactly tap0901 (not root\tap0901).
+Check 'adapter ComponentId is tap0901' {
+  $guid = (Get-NetAdapter -Name 'proxygrid-tap0' -ErrorAction Stop).InterfaceGuid
+  $class = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}\*'
+  (Get-ItemProperty $class -ErrorAction SilentlyContinue | Where-Object { $_.NetCfgInstanceId -eq $guid }).ComponentId -eq 'tap0901'
+}
 Check 'adapter address is 10.0.86.2' {
   (Get-NetIPAddress -InterfaceAlias 'proxygrid-tap0' -AddressFamily IPv4 -ErrorAction Stop).IPAddress -contains '10.0.86.2'
 }
