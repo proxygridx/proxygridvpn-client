@@ -23,7 +23,8 @@ submitted for signing:
 
 Third-party binaries keep their upstream signatures, or stay unsigned, and are never signed
 with the ProxyGridVPN identity. These are the TAP-Windows6 driver (signed by Microsoft for
-OpenVPN), `devcon.exe` (Microsoft), Electron/Chromium runtime libraries, `elevate.exe`
+OpenVPN), `tapctl.exe` (OpenVPN, GPLv2, built unmodified from pinned OpenVPN source in the
+release workflow), Electron/Chromium runtime libraries, `elevate.exe`
 (electron-builder), Newtonsoft.Json and NSIS plugins.
 
 ## Team roles

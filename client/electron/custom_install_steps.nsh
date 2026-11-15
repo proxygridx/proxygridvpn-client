@@ -47,6 +47,11 @@
   ${Else}
     File /r "${PROJECT_DIR}\third_party\tap-windows6\bin\i386\*"
   ${EndIf}
+  ; Licenses and source information for tapctl.exe and the TAP-Windows6 driver (GPLv2 / MIT).
+  File "${PROJECT_DIR}\third_party\tap-windows6\TAPCTL.txt"
+  File "${PROJECT_DIR}\third_party\tap-windows6\COPYRIGHT.GPL"
+  File "${PROJECT_DIR}\third_party\tap-windows6\COPYRIGHT.MIT"
+  File "${PROJECT_DIR}\third_party\tap-windows6\LICENSE"
   SetOutPath -
   File "${PROJECT_DIR}\client\electron\add_tap_device.bat"
 

@@ -17,6 +17,12 @@ Bundled third-party components under third_party/ keep their own licenses (see t
 METADATA files in each directory): tap-windows6 (MIT/GPLv2 dual license), jsign (Apache 2.0),
 Newtonsoft.Json (MIT) and sentry-android (BSD 3-Clause).
 
+The Windows installer also includes tapctl.exe from OpenVPN (https://github.com/OpenVPN/openvpn),
+Copyright OpenVPN Inc and Simon Rozman, licensed under the GNU General Public License version 2.
+It is a separate program, built unmodified from OpenVPN v2.7.9 by
+client/electron/windows/tapctl/build_tapctl.ps1; see third_party/tap-windows6/TAPCTL.txt for its
+license and source information.
+
 Licenses of other third-party dependencies are listed in the app (About > Licenses) and in
 client/web/views/licenses_view/licenses/licenses.txt.
 

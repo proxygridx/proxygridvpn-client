@@ -28,11 +28,11 @@ app, so both can be installed at the same time.
 1. Open **Settings > Apps > Installed apps**, find **ProxyGridVPN** and choose **Uninstall** (or
    run `Uninstall ProxyGridVPN.exe` in the install folder). This removes the app and stops and
    deletes the `ProxyGridVPNService` service.
-2. The uninstaller does **not** remove the `proxygrid-tap0` network adapter, because the bundled
-   tool can only remove every TAP-Windows6 adapter at once, including other apps' adapters. To
-   remove it, open **Device Manager > Network adapters**, right-click the TAP-Windows Adapter V9
-   named `proxygrid-tap0`, and choose **Uninstall device**. Tick "Attempt to remove the driver"
-   only if no other app (such as OpenVPN or Outline) uses TAP-Windows6.
+2. The uninstaller also removes the `proxygrid-tap0` network adapter, and only that adapter;
+   other apps' TAP-Windows6 adapters are left alone. The TAP-Windows6 driver package stays in
+   the Windows driver store, because other apps (such as OpenVPN or Outline) may use it. To
+   remove it, run `pnputil /enum-drivers`, find the `oemNN.inf` whose original name is
+   `oemvista.inf` from provider TAP-Windows Provider V9, and run `pnputil /delete-driver oemNN.inf`.
 3. To delete saved keys and settings, delete the folders `%APPDATA%\ProxyGridVPN` and `%APPDATA%\net.proxygrid.vpn`.
 
 ## Components
@@ -43,7 +43,8 @@ app, so both can be installed at the same time.
 | `tun2socks.exe`, `backend.dll` | Moves packets between the TAP adapter and the Shadowsocks server | `client/go` |
 | `OutlineService.exe` (`ProxyGridVPNService`) | Privileged routing and DNS changes, controlled over a local named pipe | `client/electron/windows/OutlineService` |
 | `smartdnsblock.exe` | Blocks DNS outside the tunnel with Windows Filtering Platform rules while connected | `client/electron/windows/smartdnsblock` |
-| TAP-Windows6 (`tap0901.sys`), `devcon.exe` | Virtual network adapter and its installer tool | Upstream binaries in `third_party/tap-windows6` |
+| TAP-Windows6 (`tap0901.sys`) | Virtual network adapter driver (signed by Microsoft for OpenVPN) | Upstream binaries in `third_party/tap-windows6` |
+| `tapctl.exe` | Creates and removes the `proxygrid-tap0` adapter (GPLv2, see `third_party/tap-windows6/TAPCTL.txt`) | Built from pinned OpenVPN source by `client/electron/windows/tapctl/build_tapctl.ps1` |
 
 ## Build from source
 
@@ -55,6 +56,8 @@ npm ci
 # Helpers (routing service and DNS-leak blocker):
 & "$msbuild" client\electron\windows\OutlineService\OutlineService.sln /p:Configuration=Release /p:Platform=x86
 & "$msbuild" client\electron\windows\smartdnsblock\smartdnsblock.sln /p:Configuration=Release /p:Platform=x86 /p:PlatformToolset=v143
+# tapctl.exe (TAP adapter tool) from pinned OpenVPN source; needs git and the C++ ARM64 tools too:
+pwsh client/electron/windows/tapctl/build_tapctl.ps1
 # Installer (unsigned), written to output\client\electron\build\:
 npm run action client/electron/build windows -- --arch ia32
 ```

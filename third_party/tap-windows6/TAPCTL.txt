@@ -1,0 +1,33 @@
+tapctl.exe
+==========
+
+ProxyGridVPN uses tapctl.exe from the OpenVPN project to create and remove its TAP-Windows6
+network adapter ("proxygrid-tap0").
+
+  Copyright (C) 2002-2026 OpenVPN Inc <sales@openvpn.net>
+  Copyright (C) 2018-2026 Simon Rozman <simon@rozman.si>
+
+tapctl is free software licensed under the GNU General Public License version 2. The full
+license text is in COPYRIGHT.GPL next to this file. tapctl is a separate program that
+ProxyGridVPN runs during installation and uninstallation; it is not linked into ProxyGridVPN.
+
+Corresponding source code
+-------------------------
+tapctl.exe is built, unmodified, from OpenVPN release v2.7.9
+(commit 7b60c2aa34992639691e3a2d651fe27301e2e9d5), directory src/tapctl:
+
+  https://github.com/OpenVPN/openvpn/tree/7b60c2aa34992639691e3a2d651fe27301e2e9d5/src/tapctl
+
+The build script, including the three configuration values it supplies, is
+client/electron/windows/tapctl/build_tapctl.ps1 in
+https://github.com/proxygridx/proxygridvpn-client. On request we will also provide the
+complete corresponding source code for at least three years from each release; contact
+contact@proxygrid.net.
+
+TAP-Windows6 driver
+-------------------
+The TAP-Windows6 driver files (tap0901.sys, tap0901.cat, OemVista.inf) are from the OpenVPN
+tap-windows6 project, version 9.27.0, available under the GNU General Public License
+version 2 (COPYRIGHT.GPL) or, for the files noted in LICENSE, the MIT license (COPYRIGHT.MIT):
+
+  https://github.com/OpenVPN/tap-windows6
