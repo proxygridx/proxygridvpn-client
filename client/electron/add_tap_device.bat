@@ -54,8 +54,10 @@ if %errorlevel% neq 0 if %errorlevel% neq 259 if %errorlevel% neq 3010 (
   exit /b %ERROR_TAP_INSTALL%
 )
 
-:: 2. Create a root-enumerated TAP adapter with our name (OpenVPN tapctl, built from source).
-tap-windows6\tapctl.exe create --hwid root\%DEVICE_HWID% --name %DEVICE_NAME%
+:: 2. Create a TAP adapter with our name (OpenVPN tapctl, built from source). Use the plain
+:: tap0901 hardware ID, as devcon did: tun2socks finds the adapter by ComponentId "tap0901" and
+:: does not accept "root\tap0901".
+tap-windows6\tapctl.exe create --hwid %DEVICE_HWID% --name %DEVICE_NAME%
 if %errorlevel% neq 0 (
   echo Could not create TAP network device. >&2
   exit /b %ERROR_TAP_INSTALL%
