@@ -171,6 +171,7 @@ func main() {
 			Cause:   platerrors.ToPlatformError(err),
 		}, exitCodeFailure)
 	}
+	restoreTunDNS(*args.tunName, dnsResolvers)
 
 	remoteDevice, err := vpn.ConnectRemoteDevice(context.Background(), client, client)
 	if err != nil {
