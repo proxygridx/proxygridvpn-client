@@ -77,10 +77,18 @@ New-NetFirewallRule -DisplayName 'ProxyGridVPN CI test server' -Direction Inboun
   -Program $ServerExe -Profile Any | Out-Null
 $server = Start-Process -FilePath $ServerExe -ArgumentList '-listen', "${serverIp}:8488", '-secret', $secret `
   -RedirectStandardOutput $serverLog -RedirectStandardError (Join-Path $tmp 'server.err') -PassThru -WindowStyle Hidden
-Start-Sleep -Seconds 2
+$deadline = (Get-Date).AddSeconds(20)
+do {
+  Start-Sleep -Milliseconds 500
+  $ready = Test-NetConnection -ComputerName $serverIp -Port 8488 -InformationLevel Quiet -WarningAction SilentlyContinue
+} until ($ready -or (Get-Date) -gt $deadline)
+Check 'test server accepts connections' { $ready }
 
 $tun = $null
+$script:connectCount = 0
 function Connect-Vpn([string]$label) {
+  $script:connectCount++
+  $script:tunLog = Join-Path $tmp "tun2socks-$($script:connectCount).log"
   # As in the app, the proxy server's address is routed around the tunnel.
   $r = Send-Routing @{ action = 'configureRouting'; parameters = @{ proxyIp = $serverIp; isAutoConnect = 'false' } }
   Check "$label configureRouting succeeds" { $r.statusCode -eq 0 }
@@ -88,7 +96,7 @@ function Connect-Vpn([string]$label) {
     '-tunMask', '255.255.255.0', '-tunDNS', '169.254.113.53', '-client', "`"$clientConfig`"", '-logLevel', 'debug')
   if ($r.gatewayAdapterIndex) { $targs += @('-adapterIndex', $r.gatewayAdapterIndex) }
   $script:tun = Start-Process -FilePath $tun2socks.FullName -ArgumentList $targs `
-    -RedirectStandardOutput $tunLog -RedirectStandardError "$tunLog.err" -PassThru -WindowStyle Hidden
+    -RedirectStandardOutput $script:tunLog -RedirectStandardError "$($script:tunLog).err" -PassThru -WindowStyle Hidden
   Start-Sleep -Seconds 5
   Check "$label tun2socks running" { -not $script:tun.HasExited }
 }
@@ -114,8 +122,18 @@ function Test-Traffic([string]$label) {
   Write-Host "  server counters before: tcp=$($before.tcp) dns=$($before.dns); after: tcp=$($after.tcp) dns=$($after.dns)"
   Check "$label TCP went through the Shadowsocks server" { $after.tcp -gt $before.tcp }
   Check "$label DNS went through the Shadowsocks server" { $after.dns -gt $before.dns }
-  Check "$label DNS outside the tunnel is blocked (UDP to 8.8.8.8)" {
-    try { Resolve-DnsName -Name 'example.org' -Server 8.8.8.8 -DnsOnly -QuickTimeout -ErrorAction Stop | Out-Null; $false } catch { $true }
+  # smartdnsblock must drop DNS that bypasses the tunnel. Send a query from a socket bound to the
+  # physical adapter (which keeps it out of the tunnel) and expect no answer.
+  Check "$label DNS from the physical adapter is blocked (UDP to 8.8.8.8)" {
+    $udp = New-Object System.Net.Sockets.UdpClient([System.Net.IPEndPoint]::new([System.Net.IPAddress]::Parse($serverIp), 0))
+    try {
+      $udp.Client.ReceiveTimeout = 3000
+      # Standard query for example.org A, id 0x1234.
+      [byte[]]$q = 0x12,0x34,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,7,0x65,0x78,0x61,0x6d,0x70,0x6c,0x65,3,0x6f,0x72,0x67,0,0x00,0x01,0x00,0x01
+      [void]$udp.Send($q, $q.Length, '8.8.8.8', 53)
+      $from = [System.Net.IPEndPoint]::new([System.Net.IPAddress]::Any, 0)
+      try { [void]$udp.Receive([ref]$from); $false } catch { $true }
+    } finally { $udp.Dispose() }
   }
 }
 
@@ -136,7 +154,11 @@ try {
   if ($tun -and -not $tun.HasExited) { Stop-Process -Id $tun.Id -Force }
   if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
   Remove-NetFirewallRule -DisplayName 'ProxyGridVPN CI test server' -ErrorAction SilentlyContinue
-  Write-Host "`n--- tun2socks log (tail) ---"; Get-Content "$tunLog.err", $tunLog -ErrorAction SilentlyContinue | Select-Object -Last 40
+  foreach ($n in 1..$script:connectCount) {
+    $log = Join-Path $tmp "tun2socks-$n.log"
+    Write-Host "`n--- tun2socks log, connect $n (tail) ---"
+    Get-Content "$log.err", $log -ErrorAction SilentlyContinue | Select-Object -Last 30
+  }
 }
 
 if ($failures.Count -gt 0) { Write-Host "`n$($failures.Count) check(s) failed: $($failures -join '; ')"; exit 1 }
