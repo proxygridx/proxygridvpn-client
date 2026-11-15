@@ -37,8 +37,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/windows-release.yml'
-      - 'client/electron/build.action.mjs'
-      - 'client/electron/electron-builder.json'
+      - 'client/electron/**'
+      - 'third_party/tap-windows6/**'
   workflow_dispatch:
     inputs:
       version:
@@ -91,6 +91,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $msbuild client\electron\windows\smartdnsblock\smartdnsblock.sln /p:Configuration=Release /p:Platform=x86 /p:PlatformToolset=v143 /v:minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build tapctl from OpenVPN source (replaces devcon.exe)
+        shell: pwsh
+        run: pwsh client/electron/windows/tapctl/build_tapctl.ps1
       - name: Build app
         shell: bash
         run: |
@@ -104,6 +107,10 @@ jobs:
           cp -r output/client/electron/build/win-${{ matrix.arch }}-unpacked stage/${{ matrix.arch }}/app
           cp client/electron/windows/OutlineService/OutlineService/bin/OutlineService.exe \
              client/electron/windows/smartdnsblock/bin/smartdnsblock.exe stage/${{ matrix.arch }}/helpers/
+          for a in i386 amd64 arm64; do
+            mkdir -p stage/${{ matrix.arch }}/tapctl/$a
+            cp third_party/tap-windows6/bin/$a/tapctl.exe stage/${{ matrix.arch }}/tapctl/$a/
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: stage-${{ matrix.arch }}
@@ -184,6 +191,9 @@ jobs:
         run: |
           cp binaries/${{ matrix.arch }}/helpers/OutlineService.exe client/electron/windows/OutlineService/OutlineService/bin/OutlineService.exe
           cp binaries/${{ matrix.arch }}/helpers/smartdnsblock.exe client/electron/windows/smartdnsblock/bin/smartdnsblock.exe
+          for a in i386 amd64 arm64; do
+            cp binaries/${{ matrix.arch }}/tapctl/$a/tapctl.exe third_party/tap-windows6/bin/$a/tapctl.exe
+          done
       - name: Build installer from the staged app
         shell: bash
         run: |
@@ -198,9 +208,28 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  collect-installers:
+  # Install and uninstall the unsigned ia32 installer silently on a clean GitHub Windows runner and
+  # check what it changes. (The arm64 installer cannot run on the x64 runner.)
+  installer-smoke-test:
     needs: package
     if: always() && needs.package.result == 'success'
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: installer-ia32
+          path: dist
+      - name: Install, check, uninstall, check
+        shell: pwsh
+        run: pwsh client/electron/windows/test/installer_smoke_test.ps1 -Installer (Get-ChildItem dist\*-ia32.exe | Select-Object -First 1).FullName
+
+  collect-installers:
+    needs: [package, installer-smoke-test]
+    if: always() && needs.package.result == 'success' && needs.installer-smoke-test.result == 'success'
     runs-on: ubuntu-24.04
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}

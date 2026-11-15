@@ -17,6 +17,9 @@ export type UpdateListener = () => void;
 export interface Updater {
   // Sets a callback to be invoked when an update is available.
   setListener(listener: UpdateListener): void;
+  // Platforms whose app checks an update server itself (desktop) let the user turn that off.
+  getAutoCheck?(): Promise<boolean>;
+  setAutoCheck?(enabled: boolean): Promise<void>;
 }
 
 export class AbstractUpdater implements Updater {

@@ -33,6 +33,7 @@ import {
 } from 'electron';
 import {autoUpdater} from 'electron-updater';
 
+import {AppSettingsStore} from './app_settings';
 import {lookupIp} from './connectivity';
 import {invokeGoMethod} from './go_plugin';
 import {GoVpnTunnel} from './go_vpn_tunnel';
@@ -70,6 +71,8 @@ if (IS_LINUX) {
 // Used for the auto-connect feature. There will be a tunnel in store
 // if the user was connected at shutdown.
 const tunnelStore = new TunnelStore(app.getPath('userData'));
+const appSettings = new AppSettingsStore(app.getPath('userData'));
+let updateTimer: ReturnType<typeof setInterval> | null = null;
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -473,6 +476,22 @@ function checkForUpdates() {
   });
 }
 
+// Automatic update checks contact the update server, so users can turn them off (privacy policy).
+function applyAutoUpdate(enabled: boolean) {
+  if (updateTimer) {
+    clearInterval(updateTimer);
+    updateTimer = null;
+  }
+  autoUpdater.autoDownload = enabled;
+  if (!enabled) {
+    console.log('automatic update checks are off');
+    return;
+  }
+  checkForUpdates();
+  // Check every six hours
+  updateTimer = setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
+}
+
 function main() {
   setupSentry();
 
@@ -524,9 +543,7 @@ function main() {
     }
 
     if (!debugMode) {
-      checkForUpdates();
-      // Check every six hours
-      setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
+      applyAutoUpdate((await appSettings.load()).autoUpdate);
     }
   });
 
@@ -621,6 +638,21 @@ function main() {
         case 'SecretRemove': {
           const {name} = JSON.parse(params) as {name: string};
           await removeSecret(name);
+          return '';
+        }
+
+        case 'AutoUpdateGet':
+          return JSON.stringify({
+            enabled: (await appSettings.load()).autoUpdate,
+          });
+
+        case 'AutoUpdateSet': {
+          const {enabled} = JSON.parse(params) as {enabled: boolean};
+          await appSettings.save({
+            ...(await appSettings.load()),
+            autoUpdate: !!enabled,
+          });
+          if (!debugMode) applyAutoUpdate(!!enabled);
           return '';
         }
 

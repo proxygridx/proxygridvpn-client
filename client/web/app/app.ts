@@ -157,6 +157,7 @@ export class App {
     this.clipboard.setListener(this.handleClipboardText.bind(this));
 
     this.updater.setListener(this.updateDownloaded.bind(this));
+    void this.initAutoUpdateSetting();
 
     // Register Cordova mobile foreground event to sync server connectivity.
     document.addEventListener(
@@ -481,6 +482,26 @@ export class App {
     } catch {
       // Don't alert the user; high false positive rate.
     }
+  }
+
+  // Desktop builds check an update server; the About screen lets the user turn that off.
+  private async initAutoUpdateSetting() {
+    const {getAutoCheck, setAutoCheck} = this.updater;
+    if (!getAutoCheck || !setAutoCheck) return;
+    try {
+      this.rootEl.autoUpdateEnabled = await getAutoCheck.call(this.updater);
+      this.rootEl.autoUpdateSupported = true;
+    } catch (e) {
+      console.warn('cannot read the automatic update setting', e);
+      return;
+    }
+    this.rootEl.addEventListener('AutoUpdateChanged', (e: CustomEvent) => {
+      const enabled = !!e.detail.enabled;
+      this.rootEl.autoUpdateEnabled = enabled;
+      setAutoCheck.call(this.updater, enabled).catch((err: unknown) => {
+        console.error('cannot save the automatic update setting', err);
+      });
+    });
   }
 
   private updateDownloaded() {

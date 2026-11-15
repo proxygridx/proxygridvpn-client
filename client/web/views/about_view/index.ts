@@ -11,7 +11,7 @@
   limitations under the License.
 */
 
-import {LitElement, html, css} from 'lit';
+import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 
 import {BRAND} from '../../app/brand';
@@ -27,8 +27,20 @@ export class AboutView extends LitElement {
   ) => string;
   @property({type: String}) version!: string;
   @property({type: String}) build!: string;
+  /** Shown only on platforms that check for updates themselves (desktop). */
+  @property({type: Boolean}) autoUpdateSupported = false;
+  @property({type: Boolean}) autoUpdateEnabled = true;
 
   static styles = css`
+    .auto-update {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+      font-size: 14px;
+      color: var(--outline-text-color, inherit);
+    }
+
     :host {
       display: flex;
       flex-direction: column;
@@ -106,8 +118,29 @@ export class AboutView extends LitElement {
           id="about-outline-content"
           .innerHTML=${this.aboutText()}
         ></section>
+        ${this.autoUpdateSupported
+          ? html`<label class="auto-update">
+              <input
+                type="checkbox"
+                .checked=${this.autoUpdateEnabled}
+                @change=${this.onAutoUpdateChange}
+              />
+              Check for updates automatically
+            </label>`
+          : nothing}
       </article>
     `;
+  }
+
+  private onAutoUpdateChange(e: Event) {
+    const enabled = (e.target as HTMLInputElement).checked;
+    this.dispatchEvent(
+      new CustomEvent('AutoUpdateChanged', {
+        detail: {enabled},
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
   // ProxyGridVPN is built on the open-source Outline client; the attribution below must stay.

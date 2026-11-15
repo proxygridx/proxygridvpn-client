@@ -38,7 +38,10 @@
   },
   "nsis": {
     "include": "client/electron/custom_install_steps.nsh",
-    "perMachine": true
+    "perMachine": true,
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": false,
+    "license": "client/electron/installer_notice.txt"
   },
   "win": {
     "icon": "client/electron/icons/win/icon.ico",

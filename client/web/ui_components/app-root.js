@@ -362,6 +362,8 @@ export class AppRoot extends mixinBehaviors(
             localize="[[localize]]"
             root-path="[[rootPath]]"
             version="[[appVersion]]"
+            auto-update-supported="[[autoUpdateSupported]]"
+            auto-update-enabled="[[autoUpdateEnabled]]"
             build="[[appBuild]]"
           ></about-view>
           <language-view
@@ -600,6 +602,14 @@ export class AppRoot extends mixinBehaviors(
       homeMode: {
         type: String,
         value: 'proxygrid',
+      },
+      autoUpdateSupported: {
+        type: Boolean,
+        value: false,
+      },
+      autoUpdateEnabled: {
+        type: Boolean,
+        value: true,
       },
       // Tells AppLocalizeBehavior to bubble its
       // app-localize-resources-loaded event, allowing us listen for it on

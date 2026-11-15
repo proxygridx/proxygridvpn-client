@@ -19,7 +19,7 @@ setlocal enabledelayedexpansion
 set DEVICE_NAME=proxygrid-tap0
 set DEVICE_HWID=tap0901
 
-:: Error codes for surfacing to the user and sentry.
+:: Error codes shown to the user by the installer.
 set ERROR_TAP_INSTALL=1
 set ERROR_TAP_FIND_NAME=2
 set ERROR_TAP_RENAME=3
@@ -42,37 +42,23 @@ if %errorlevel% equ 0 (
 )
 
 echo Creating TAP network device...
-tap-windows6\devcon install tap-windows6\OemVista.inf %DEVICE_HWID%
-if %errorlevel% neq 0 (
-  echo Could not create TAP network device. >&2
+:: The installer runs this script in a 32-bit cmd.exe; on 64-bit Windows, System32 is then
+:: redirected and has no pnputil.exe, so use Sysnative to reach the 64-bit tool.
+set PNPUTIL=%SystemRoot%\System32\pnputil.exe
+if exist %SystemRoot%\Sysnative\pnputil.exe set PNPUTIL=%SystemRoot%\Sysnative\pnputil.exe
+
+:: 1. Add the Microsoft-signed TAP-Windows6 driver package to the driver store (built-in pnputil).
+%PNPUTIL% /add-driver tap-windows6\OemVista.inf /install
+if %errorlevel% neq 0 if %errorlevel% neq 259 if %errorlevel% neq 3010 (
+  echo Could not add the TAP driver package. >&2
   exit /b %ERROR_TAP_INSTALL%
 )
 
-:: Find the name of the most recently installed TAP device in the registry and rename it.
-echo Searching for new TAP network device name...
-call find_tap_device_name.bat TAP_NAME
+:: 2. Create a root-enumerated TAP adapter with our name (OpenVPN tapctl, built from source).
+tap-windows6\tapctl.exe create --hwid root\%DEVICE_HWID% --name %DEVICE_NAME%
 if %errorlevel% neq 0 (
-  echo Could not find TAP device name. >&2
-  exit /b %ERROR_TAP_FIND_NAME%
-)
-echo Found TAP device name: "%TAP_NAME%"
-
-:: We've occasionally seen delays before netsh will "see" the new device, at least for
-:: purposes of configuring IP and DNS ("netsh interface show interface name=xxx" does not
-:: seem to be affected).
-call :wait_for_device "%TAP_NAME%"
-
-:: Attempt to rename the device even if waiting timed out.
-%SystemRoot%\System32\netsh interface set interface name="%TAP_NAME%" newname="%DEVICE_NAME%"
-if %errorlevel% neq 0 (
-  :: Try to rename the device through powershell in case netsh failed due to not being able to "see"
-  :: the device. Pipe input from /dev/null to prevent powershell from waiting forever on EOF.
-  powershell "Rename-NetAdapter -Name \"%TAP_NAME%\" -NewName \"%DEVICE_NAME%\"" <nul
-  :: Note that we use delayed variable expansion inside a control block to check errorlevel.
-  if !errorlevel! neq 0 (
-    echo Could not rename TAP device. >&2
-    exit /b %ERROR_TAP_RENAME%
-  )
+  echo Could not create TAP network device. >&2
+  exit /b %ERROR_TAP_INSTALL%
 )
 
 :: Wait for the new name to propagate to netsh.

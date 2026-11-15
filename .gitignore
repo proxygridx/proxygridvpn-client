@@ -15,3 +15,6 @@ node_modules
 
 # Capacitor web build output
 client/capacitor/www/
+
+# Built from OpenVPN source by client/electron/windows/tapctl/build_tapctl.ps1
+third_party/tap-windows6/bin/*/tapctl.exe

@@ -18,13 +18,6 @@
 
 !include env.nsh
 
-; StrFunc weirdness; this fix suggested here:
-; https://github.com/electron-userland/electron-builder/issues/888
-!ifndef BUILD_UNINSTALLER
-${StrLoc}
-${StrNSISToIO}
-${StrRep}
-!endif
 
 !macro customInstall
   ; Normally, because we mark the installer binary as requiring administrator permissions, the
@@ -39,7 +32,7 @@ ${StrRep}
   UserInfo::GetAccountType
   Pop $0
   StrCmp $0 "Admin" isadmin
-  MessageBox MB_OK "Sorry, Outline requires administrator permissions."
+  MessageBox MB_OK "Sorry, ProxyGridVPN requires administrator permissions to install its network adapter and service."
   Quit
 
   isadmin:
@@ -56,9 +49,8 @@ ${StrRep}
   ${EndIf}
   SetOutPath -
   File "${PROJECT_DIR}\client\electron\add_tap_device.bat"
-  File "${PROJECT_DIR}\client\electron\find_tap_device_name.bat"
 
-  ; OutlineService files, stopping the service first in case it's still running.
+  ; Routing service (OutlineService.exe, registered as ProxyGridVPNService), stopping it first in case it's still running.
   nsExec::Exec "$SYSDIR\net stop ProxyGridVPNService"
   File "${PROJECT_DIR}\client\electron\windows\OutlineService\OutlineService\bin\OutlineService.exe"
   File "${PROJECT_DIR}\client\electron\windows\smartdnsblock\bin\smartdnsblock.exe"
@@ -74,76 +66,11 @@ ${StrRep}
   Pop $1
   StrCmp $0 0 installservice
 
-  ; The TAP device may have failed to install because the user did not want to
-  ; install the device driver. If so:
-  ;  - tell the user that they need to install the driver
-  ;  - skip the Sentry report
-  ;  - quit
-  ;
-  ; When this happens, devcon.exe prints an error message like this:
-  ; UpdateDriverForPlugAndPlayDevices failed, GetLastError=-536870333
-  ;
-  ; We can use the presence of that magic number to detect this case.
-  Var /GLOBAL DRIVER_FAILURE_MAGIC_NUMBER_INDEX
-  ${StrLoc} $DRIVER_FAILURE_MAGIC_NUMBER_INDEX $1 "536870333" ">"
-
-  StrCmp $DRIVER_FAILURE_MAGIC_NUMBER_INDEX "" submitsentryreport
-  ; The term "device software" is the same as that used by the prompt, at least on Windows 7.
-  MessageBox MB_OK "Sorry, you must install the device software in order to use Outline. Please try \
-    running the installer again."
-  Quit
-
-  submitsentryreport:
-  MessageBox MB_OK "Sorry, we could not configure your system to connect to Outline. Please try \
-    running the installer again. If you still cannot install Outline, please get in \
-    touch with us and let us know that the TAP device failed to install with error code $0."
-
-  ; Submit a Sentry error event.
-  ;
-  ; This will get bundled into an issue named "could not install TAP device" with the following
-  ; attributes:
-  ;  - a single breadcrumb containing the output of add_tap_device.bat
-  ;  - Windows version, as a tag named "os" with a value identical in most cases to what the
-  ;    JavaScript Sentry client produces, e.g. "Windows 10.0.17134"
-  ;  - client version
-  ;
-  ; Note:
-  ;  - Sentry won't accept a breadcrumbs without a timestamp; fortunately, it accepts obviously
-  ;    bogus values so we don't have to fetch the real time.
-  ;  - Because nsExec::ExecToStack yields "NSIS strings" strings suitable for inclusion in, for
-  ;    example, a MessageBox, e.g. "device not found$\ncommand failed", we must convert it to a
-  ;    string that Sentry will like *and* can fit on one line, e.g.
-  ;    "device not found\ncommand failed"; fortunately, StrFunc.nsh's StrNSISToIO does precisely
-  ;    this.
-  ;  - RELEASE and SENTRY_URL are defined in env.nsh which is generated at build time by
-  ;    {package,release}_action.sh.
-
-  ; TODO: Remove this once we figure out why/if breadcrumbs are being truncated.
-  Var /GLOBAL FAILURE_MESSAGE_LENGTH
-  StrLen $FAILURE_MESSAGE_LENGTH $1
-
-  ; http://nsis.sourceforge.net/Docs/StrFunc/StrFunc.txt
-  Var /GLOBAL FAILURE_MESSAGE
-  ${StrNSISToIO} $FAILURE_MESSAGE $1
-  ${StrRep} $FAILURE_MESSAGE $FAILURE_MESSAGE '"' '\"'
-
-  ${WinVerGetMajor} $R0
-  ${WinVerGetMinor} $R1
-  ${WinVerGetBuild} $R2
-
-  ; http://nsis.sourceforge.net/Inetc_plug-in#post
-  inetc::post '{\
-    "message":"could not install TAP device ($0)",\
-    "release":"${RELEASE}",\
-    "tags":[\
-      ["os", "Windows $R0.$R1.$R2"],\
-      ["error_message_length", "$FAILURE_MESSAGE_LENGTH"]\
-    ],\
-    "breadcrumbs":[\
-      {"timestamp":1, "message":"$FAILURE_MESSAGE"}\
-    ]\
-  }' /TOSTACK ${SENTRY_URL} /END
-
+  ; Show the error locally. The installer sends no data over the network.
+  MessageBox MB_OK "Sorry, ProxyGridVPN could not set up its network adapter (error $0). Please \
+    try running the installer again. If it still fails, see \
+    https://github.com/proxygridx/proxygridvpn-client/blob/main/docs/windows.md or contact \
+    contact@proxygrid.net with this error code.$\n$\n$1"
   Quit
 
   installservice:
@@ -153,21 +80,21 @@ ${StrRep}
   nsExec::Exec "$SYSDIR\sc query ProxyGridVPNService"
   Pop $0
   StrCmp $0 0 success
-  ; TODO: Trigger a Sentry report for service installation failure, too, and revisit
-  ;       the restart stuff in the TypeScript code.
-  MessageBox MB_OK "Sorry, we could not configure your system to connect to Outline. Please try \
-    running the installer again. If you still cannot install Outline, please get in touch with us \
-    and let us know that ProxyGridVPNService failed to install."
+  MessageBox MB_OK "Sorry, ProxyGridVPN could not install its background service \
+    (ProxyGridVPNService). Please try running the installer again. If it still fails, contact \
+    contact@proxygrid.net."
   Quit
 
   success:
 
 !macroend
 
-; TODO: Remove the TAP device on uninstall. This is impossible to implement safely
-;       with the bundled devcon.exe because it can only remove *all* devices
-;       having hwid tap0901 and these may include non-Outline devices.
+; Removes only our adapter (by name), never other apps' TAP-Windows6 adapters. Skipped during an
+; automatic update, where the new version keeps using the same adapter.
 !macro customUnInstall
   nsExec::Exec "$SYSDIR\net stop ProxyGridVPNService"
   nsExec::Exec "$SYSDIR\sc delete ProxyGridVPNService"
+  ${ifNot} ${isUpdated}
+    nsExec::Exec '"$INSTDIR\tap-windows6\tapctl.exe" delete proxygrid-tap0'
+  ${endIf}
 !macroend

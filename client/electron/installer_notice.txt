@@ -1,0 +1,30 @@
+Before you install ProxyGridVPN
+
+ProxyGridVPN is free, open-source software (Apache License 2.0):
+https://github.com/proxygridx/proxygridvpn-client
+
+What this installer changes on your computer
+- Administrator rights: needed because a VPN changes system networking.
+- Network adapter: installs the TAP-Windows6 virtual network driver (signed by Microsoft for
+  OpenVPN) and creates one adapter named "proxygrid-tap0". Windows may ask you to confirm.
+- Background service: installs "ProxyGridVPNService", which runs as a system service and sets
+  routes and DNS only while the VPN is connected, and restores them when it disconnects.
+- Shortcuts and the proxygridvpn:// link handler.
+Uninstalling removes the app, the service and the "proxygrid-tap0" adapter.
+
+Network connections the app makes
+- To the VPN server in the access key you use (your own server or a ProxyGrid server).
+- Only if you sign in to a ProxyGrid account: Amazon Cognito (sign-in) and api.proxygrid.net
+  (plan, usage, access keys). Your password itself never leaves your computer.
+- Automatic update checks: every 6 hours the app asks proxygrid.net for the latest version
+  number. No account or usage data is sent. Turn this off in the app under About >
+  "Check for updates automatically".
+- No analytics. This build sends no crash reports.
+
+If you use only your own servers, the app does not contact ProxyGrid except for update checks
+(which you can turn off).
+
+Privacy policy: https://github.com/proxygridx/proxygridvpn-client/blob/main/PRIVACY.md
+The installer itself sends no data over the network.
+
+Click "I Agree" to continue.

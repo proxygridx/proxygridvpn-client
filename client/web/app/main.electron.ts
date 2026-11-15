@@ -93,6 +93,23 @@ class ElectronUpdater extends AbstractUpdater {
       this.emitEvent.bind(this)
     );
   }
+
+  async getAutoCheck(): Promise<boolean> {
+    const out = await window.electron.methodChannel.invoke(
+      'invoke-method',
+      'AutoUpdateGet',
+      '{}'
+    );
+    return JSON.parse(out).enabled !== false;
+  }
+
+  async setAutoCheck(enabled: boolean): Promise<void> {
+    await window.electron.methodChannel.invoke(
+      'invoke-method',
+      'AutoUpdateSet',
+      JSON.stringify({enabled})
+    );
+  }
 }
 
 class ElectronVpnInstaller implements VpnInstaller {

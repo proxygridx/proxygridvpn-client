@@ -115,6 +115,9 @@ jobs:
           if-no-files-found: error
       # The NSIS .exe installs the TAP driver and routing service. An MSI can be produced with
       # PROXYGRIDVPN_WINDOWS_MSI=1 but cannot connect yet (no TAP driver custom action).
+      - name: Build tapctl from OpenVPN source (replaces devcon.exe)
+        shell: pwsh
+        run: pwsh client/electron/windows/tapctl/build_tapctl.ps1
       - name: Build installer (.exe)
         shell: bash
         run: |
