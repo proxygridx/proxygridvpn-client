@@ -51,8 +51,22 @@ build has been tested end to end on real devices.
 | iOS | 15.5 | Builds and signs (development); device testing in progress |
 | Linux (Debian-based) | — | Builds from source; not tested |
 
-Downloads will be published on [proxygrid.net](https://proxygrid.net) and in this repository's
-Releases once builds are signed and tested.
+Downloads will be published in this repository's
+[Releases](https://github.com/proxygridx/proxygridvpn-client/releases) and on
+[proxygrid.net](https://proxygrid.net) once builds are tested. Windows install, uninstall,
+build and verification steps: [docs/windows.md](docs/windows.md).
+
+## How it connects
+
+- **ProxyGrid account (optional).** Sign-in uses Amazon Cognito; the app then calls
+  `api.proxygrid.net` for your plan, usage and a per-region access key. The key is an Outline
+  dynamic key (`ssconf://api.proxygrid.net/vpn/c/...`), so the VPN connection itself uses the
+  same Shadowsocks code as any other server. ProxyGrid's servers and backend are operated
+  privately and are not part of this repository or of any signed download.
+- **Your own servers.** Paste an `ss://` or `ssconf://` key from any Outline-compatible
+  Shadowsocks server. These keys stay on your device and are never sent to ProxyGrid.
+
+See the [privacy policy](PRIVACY.md) for every connection the app makes.
 
 ## Building
 
@@ -76,6 +90,15 @@ them the app runs in own-server mode only. To sign and distribute your own build
 signing identities and app IDs. More detail: [client/README.md](client/README.md) and
 [docs/life_of_a_packet.md](docs/life_of_a_packet.md).
 
+## Code signing policy
+
+Windows releases are intended to be signed through the SignPath Foundation program; the
+application is pending and current builds are unsigned. Roles, approvals and what is signed:
+[CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
 ## Contributing
 
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: changes need tests
@@ -85,6 +108,10 @@ and must pass CI. Open an issue to discuss larger changes before starting.
 
 Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Do not open
 public issues for security problems.
+
+## Privacy
+
+ProxyGridVPN collects no analytics. See the [privacy policy](PRIVACY.md).
 
 ## License and acknowledgements
 

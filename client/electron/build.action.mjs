@@ -51,7 +51,14 @@ const ELECTRON_PLATFORM_PACKAGING = {
 export async function main(...parameters) {
   const {platform, buildMode, versionName, arch, goArch} =
     getBuildParameters(parameters);
-  const {autoUpdateProvider = 'generic', autoUpdateUrl} = minimist(parameters);
+  // --prepackaged=<dir>: package an already built (and possibly signed) app directory into the
+  // installer without rebuilding or editing its executables. Used by the two-stage release
+  // signing workflow (.github/workflows/windows-release.yml).
+  const {
+    autoUpdateProvider = 'generic',
+    autoUpdateUrl,
+    prepackaged,
+  } = minimist(parameters);
 
   const packaging = ELECTRON_PLATFORM_PACKAGING[platform];
   if (!packaging) {
@@ -75,9 +82,11 @@ export async function main(...parameters) {
     );
   }
 
-  await runAction('client/web/build', ...parameters);
-  await runAction('client/go/build', ...parameters);
-  await runAction('client/electron/build_main', ...parameters);
+  if (!prepackaged) {
+    await runAction('client/web/build', ...parameters);
+    await runAction('client/go/build', ...parameters);
+    await runAction('client/electron/build_main', ...parameters);
+  }
 
   await fs.mkdir(
     path.join(getRootDir(), ELECTRON_BUILD_DIR, 'client', 'electron'),
@@ -113,8 +122,14 @@ export async function main(...parameters) {
     electronConfig.msi = {perMachine: true, oneClick: false};
   }
 
+  if (prepackaged && platform === 'windows') {
+    // Keep the executables byte-for-byte as signed.
+    electronConfig.win.signAndEditExecutable = false;
+  }
+
   // build electron binary
   await electron.build({
+    prepackaged: prepackaged ? path.resolve(prepackaged) : undefined,
     publish: buildMode === 'release' ? 'always' : 'never',
     targets: Platform[platform.toLocaleUpperCase()].createTarget(),
     config: {

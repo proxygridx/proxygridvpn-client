@@ -1,0 +1,280 @@
+# Copyright 2026 ProxyGrid
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Windows release: build from the tagged source, optionally sign through SignPath, and attach
+# the installers to a draft GitHub release. See CODE_SIGNING_POLICY.md and docs/windows.md.
+#
+#   build -> collect-binaries -> [sign-binaries] -> package -> collect-installers
+#         -> [sign-installers] -> release
+#
+# Signing is two-stage because SignPath cannot sign files inside an NSIS installer: our own
+# binaries are signed first, then the installer is built from them and signed. The bracketed
+# jobs run only when the repository variable SIGNPATH_ORGANIZATION_ID is set (after SignPath
+# Foundation approval). They use the `release-signing` environment, which must be configured
+# with required reviewers, and SignPath requires its own manual approval for every request.
+# Without SignPath the same pipeline produces unsigned installers.
+#
+# No signing keys are stored in GitHub: SignPath holds the certificate in its HSM. The only
+# secret is SIGNPATH_API_TOKEN (submitter role), stored in the `release-signing` environment.
+name: ProxyGridVPN / Windows release
+
+on:
+  push:
+    tags:
+      - 'proxygridvpn-v*'
+  # Test the pipeline (unsigned, no release) when it changes.
+  pull_request:
+    paths:
+      - '.github/workflows/windows-release.yml'
+      - 'client/electron/build.action.mjs'
+      - 'client/electron/electron-builder.json'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (for example 1.0.0). Tag builds take it from the tag.'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '0.0.1' }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [ia32, arm64]
+    steps:
+      - run: git config --system core.longpaths true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.13.0
+          use-cache: false
+      # npm ci installs exactly the versions in package-lock.json (with integrity hashes). Caches
+      # are not used in release builds.
+      - run: npm ci
+      - name: Build Windows helpers from source
+        shell: pwsh
+        run: |
+          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+          & $msbuild client\electron\windows\OutlineService\OutlineService.sln /p:Configuration=Release /p:Platform=x86 /v:minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $msbuild client\electron\windows\smartdnsblock\smartdnsblock.sln /p:Configuration=Release /p:Platform=x86 /p:PlatformToolset=v143 /v:minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build app
+        shell: bash
+        run: |
+          npm run action client/electron/build windows -- --arch ${{ matrix.arch }} \
+            --buildMode=release --versionName="${VERSION#proxygridvpn-v}" \
+            --autoUpdateUrl="${{ vars.PROXYGRIDVPN_UPDATE_URL || 'https://proxygrid.net/vpn/download/windows/' }}"
+      - name: Stage files for signing
+        shell: bash
+        run: |
+          mkdir -p stage/${{ matrix.arch }}/helpers
+          cp -r output/client/electron/build/win-${{ matrix.arch }}-unpacked stage/${{ matrix.arch }}/app
+          cp client/electron/windows/OutlineService/OutlineService/bin/OutlineService.exe \
+             client/electron/windows/smartdnsblock/bin/smartdnsblock.exe stage/${{ matrix.arch }}/helpers/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stage-${{ matrix.arch }}
+          path: stage
+          if-no-files-found: error
+          retention-days: 7
+
+  # One artifact for both architectures, so each release needs one signing request per stage.
+  collect-binaries:
+    needs: build
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: stage-*
+          merge-multiple: true
+          path: binaries
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: binaries-unsigned
+          path: binaries
+          if-no-files-found: error
+          retention-days: 7
+
+  sign-binaries:
+    needs: collect-binaries
+    if: vars.SIGNPATH_ORGANIZATION_ID != '' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    steps:
+      - uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: binaries
+          github-artifact-id: ${{ needs.collect-binaries.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: binaries
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: binaries-signed
+          path: binaries
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    name: Package ${{ matrix.arch }}
+    needs: [collect-binaries, sign-binaries]
+    if: always() && needs.collect-binaries.result == 'success' && (needs.sign-binaries.result == 'success' || needs.sign-binaries.result == 'skipped')
+    runs-on: windows-2022
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [ia32, arm64]
+    steps:
+      - run: git config --system core.longpaths true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.sign-binaries.result == 'success' && 'binaries-signed' || 'binaries-unsigned' }}
+          path: binaries
+      # The installer takes the helpers from their build paths; put the (signed) copies there.
+      - name: Place helpers
+        shell: bash
+        run: |
+          cp binaries/${{ matrix.arch }}/helpers/OutlineService.exe client/electron/windows/OutlineService/OutlineService/bin/OutlineService.exe
+          cp binaries/${{ matrix.arch }}/helpers/smartdnsblock.exe client/electron/windows/smartdnsblock/bin/smartdnsblock.exe
+      - name: Build installer from the staged app
+        shell: bash
+        run: |
+          npm run action client/electron/build windows -- --arch ${{ matrix.arch }} \
+            --buildMode=release --versionName="${VERSION#proxygridvpn-v}" \
+            --autoUpdateUrl="${{ vars.PROXYGRIDVPN_UPDATE_URL || 'https://proxygrid.net/vpn/download/windows/' }}" \
+            --prepackaged="binaries/${{ matrix.arch }}/app"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: installer-${{ matrix.arch }}
+          path: output/client/electron/build/*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  collect-installers:
+    needs: package
+    if: always() && needs.package.result == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: installer-*
+          merge-multiple: true
+          path: installers
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: installers-unsigned
+          path: installers
+          if-no-files-found: error
+          retention-days: 7
+
+  sign-installers:
+    needs: collect-installers
+    if: always() && needs.collect-installers.result == 'success' && vars.SIGNPATH_ORGANIZATION_ID != '' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    steps:
+      - uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: installers
+          github-artifact-id: ${{ needs.collect-installers.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 7200
+          output-artifact-directory: installers
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: installers-signed
+          path: installers
+          if-no-files-found: error
+          retention-days: 7
+
+  # Checksums, provenance attestation and a DRAFT release. A maintainer reviews and publishes it.
+  release:
+    needs: [collect-installers, sign-installers]
+    if: always() && needs.collect-installers.result == 'success' && (needs.sign-installers.result == 'success' || needs.sign-installers.result == 'skipped')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.sign-installers.result == 'success' && 'installers-signed' || 'installers-unsigned' }}
+          path: dist
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum *.exe | tee SHA256SUMS.txt
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: github.event_name != 'pull_request'
+        with:
+          subject-path: dist/*.exe
+      - name: Draft release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ needs.sign-installers.result == 'success' }}
+        run: |
+          if [ "$SIGNED" = "true" ]; then
+            NOTE="Windows installers are signed (code signing policy: CODE_SIGNING_POLICY.md)."
+          else
+            NOTE="Windows installers are NOT code-signed. Windows SmartScreen will warn. Code signing policy: CODE_SIGNING_POLICY.md."
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/*.exe dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --draft --prerelease --verify-tag \
+            --title "ProxyGridVPN ${GITHUB_REF_NAME#proxygridvpn-v}" \
+            --notes "$NOTE Verify downloads: docs/windows.md#verify-a-download"

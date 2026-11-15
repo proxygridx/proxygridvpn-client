@@ -7,7 +7,12 @@
   },
   "extraMetadata": {
     "name": "proxygrid-vpn",
-    "main": "output/client/electron/index.js"
+    "main": "output/client/electron/index.js",
+    "author": {
+      "name": "ProxyGrid",
+      "email": "contact@proxygrid.net"
+    },
+    "description": "ProxyGridVPN: open-source VPN client"
   },
   "files": [
     "client/www",
@@ -52,5 +57,6 @@
         "proxygridvpn"
       ]
     }
-  ]
+  ],
+  "copyright": "Copyright 2026 ProxyGrid and The Outline Authors. Apache License 2.0."
 }

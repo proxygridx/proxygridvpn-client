@@ -19,12 +19,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("OutlineService")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("ProxyGridVPN routing service")]
+[assembly: AssemblyDescription("Sets routes and DNS for ProxyGridVPN while connected")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("OutlineService")]
-[assembly: AssemblyCopyright("Copyright ©  2018")]
+[assembly: AssemblyCompany("ProxyGrid")]
+[assembly: AssemblyProduct("ProxyGridVPN")]
+[assembly: AssemblyCopyright("Copyright 2018 The Outline Authors; 2026 ProxyGrid")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
