@@ -83,6 +83,19 @@ jobs:
       # npm ci installs exactly the versions in package-lock.json (with integrity hashes). Caches
       # are not used in release builds.
       - run: npm ci
+      - name: Set the version for the Windows version resources
+        shell: pwsh
+        run: |
+          $v = $env:VERSION -replace '^proxygridvpn-v', ''
+          if ($v -notmatch '^(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$') { throw "version '$v' is not semver" }
+          $num = "$($Matches[1]),$($Matches[2]),$($Matches[3]),0"
+          "PROXYGRIDVPN_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # Read by client/go/Taskfile.yml (tun2socks.exe, backend.dll); version.h is read by
+          # smartdnsblock.rc.
+          @(
+            "#define PG_VERSION_NUM $num",
+            "#define PG_VERSION_STR `"$v`""
+          ) | Set-Content -Encoding ascii client\electron\windows\smartdnsblock\smartdnsblock\version.h
       - name: Build Windows helpers from source
         shell: pwsh
         run: |
@@ -234,7 +247,8 @@ jobs:
         run: |
           pwsh client/electron/windows/test/installer_smoke_test.ps1 `
             -Installer (Get-ChildItem dist\*-ia32.exe | Select-Object -First 1).FullName `
-            -SessionServerExe (Resolve-Path ss-test-server.exe).Path
+            -SessionServerExe (Resolve-Path ss-test-server.exe).Path `
+            -ExpectedVersion ($env:VERSION -replace '^proxygridvpn-v', '')
 
   collect-installers:
     needs: [package, installer-smoke-test]

@@ -18,7 +18,9 @@
 param(
   [Parameter(Mandatory = $true)][string]$Installer,
   # Optional: run vpn_session_test.ps1 against this test Shadowsocks server before uninstalling.
-  [string]$SessionServerExe = ''
+  [string]$SessionServerExe = '',
+  # Optional: the version that tun2socks.exe, backend.dll and smartdnsblock.exe must report.
+  [string]$ExpectedVersion = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -55,6 +57,22 @@ if ($dir) {
   Check 'devcon.exe not installed' { -not (Test-Path (Join-Path $dir 'tap-windows6\devcon.exe')) }
   Check 'routing service files installed' {
     (Test-Path (Join-Path $dir 'OutlineService.exe')) -and (Test-Path (Join-Path $dir 'smartdnsblock.exe'))
+  }
+  # Version resources on the Go and C++ binaries (SignPath metadata restrictions rely on them).
+  $versioned = @(
+    @{ name = 'tun2socks.exe'; desc = 'ProxyGridVPN network tunnel' },
+    @{ name = 'backend.dll'; desc = 'ProxyGridVPN backend library' },
+    @{ name = 'smartdnsblock.exe'; desc = 'ProxyGridVPN DNS leak protection' }
+  )
+  foreach ($f in $versioned) {
+    Check "$($f.name) version info" {
+      $file = Get-ChildItem -Path $dir -Recurse -Filter $f.name -ErrorAction Stop | Select-Object -First 1
+      $vi = $file.VersionInfo
+      Write-Host "  $($f.name): product=$($vi.ProductName) company=$($vi.CompanyName) description=$($vi.FileDescription) version=$($vi.ProductVersion)/$($vi.FileVersion)"
+      $ok = $vi.ProductName -eq 'ProxyGridVPN' -and $vi.CompanyName -eq 'ProxyGrid' -and $vi.FileDescription -eq $f.desc
+      if ($ExpectedVersion) { $ok = $ok -and $vi.ProductVersion -eq $ExpectedVersion -and $vi.FileVersion -eq $ExpectedVersion }
+      $ok
+    }
   }
 }
 Check 'ProxyGridVPNService installed and running' {

@@ -15,6 +15,11 @@ the same set with arm64 builds.
 | `OutlineService.exe` (service `ProxyGridVPNService`) | `client/electron/windows/OutlineService` (C#) | Apache-2.0 |
 | `smartdnsblock.exe` | `client/electron/windows/smartdnsblock` (C++) | Apache-2.0 |
 
+Each of these files carries a Windows version resource with ProductName `ProxyGridVPN`,
+CompanyName `ProxyGrid` and the release version (`tun2socks.exe` and `backend.dll` from
+`client/go/outline/electron/winres` through the pinned `go-winres` tool; `smartdnsblock.exe`
+from `smartdnsblock.rc`). The installer smoke test checks it on the installed files.
+
 ## Third-party (never signed with the ProxyGridVPN identity)
 
 | File | Origin | Licence | Signature |
