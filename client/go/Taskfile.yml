@@ -44,6 +44,10 @@ tasks:
     vars:
       # TODO(fortuna): remove this, it's not really needed since we don't release it separately anymore.
       TUN2SOCKS_VERSION: "v1.16.11"
+      WINRES_DIR: '{{.TASKFILE_DIR}}/outline/electron'
+      # Windows version resources; the version comes from PROXYGRIDVPN_VERSION (set by the release
+      # workflow). On other platforms this is a no-op.
+      WINRES: '{{if eq .TARGET_OS "windows"}}go tool go-winres make --arch {{.TARGET_ARCH}} --out "{{.TASKFILE_DIR}}/outline/electron/rsrc" --file-version "{{.PROXYGRIDVPN_VERSION | default "0.0.0"}}" --product-version "{{.PROXYGRIDVPN_VERSION | default "0.0.0"}}"{{else}}true{{end}}'
       OUTPUT: '{{.OUT_DIR}}/{{.TARGET_OS}}-{{.TARGET_ARCH}}/tun2socks{{if eq .TARGET_OS "windows"}}.exe{{end}}'
       # Linux=libbackend.so; Windows=backend.dll
       OUTPUT_LIB: '{{.OUT_DIR}}/{{.TARGET_OS}}-{{.TARGET_ARCH}}/{{if eq .TARGET_OS "linux"}}libbackend.so{{else}}backend.dll{{end}}'
@@ -63,14 +67,23 @@ tasks:
       # backend library; these files are uploaded to Sentry by the
       # client/src/cordova/upload_debug_symbols action. The desktop package ships
       # the unstripped binaries (the size delta is negligible next to Electron).
+      # Windows: embed version information. go build links any .syso file in the package, so each
+      # binary gets its own temporary resource object, removed after its build.
+      - defer: rm -f '{{.WINRES_DIR}}'/rsrc_windows_*.syso
       - |
+        set -e
+        {{.WINRES}} --in '{{.WINRES_DIR}}/winres/tun2socks.json'
         GOOS={{.TARGET_OS}} GOARCH={{.TARGET_ARCH}} CGO_ENABLED=1 \
         CC='zig cc -target {{.ZIG_TARGET}}' \
         go build -trimpath -ldflags="-X=main.version={{.TUN2SOCKS_VERSION}}" -o '{{.OUTPUT}}' '{{.TASKFILE_DIR}}/outline/electron'
+        rm -f '{{.WINRES_DIR}}'/rsrc_windows_*.syso
       - |
+        set -e
+        {{.WINRES}} --in '{{.WINRES_DIR}}/winres/backend.json'
         GOOS={{.TARGET_OS}} GOARCH={{.TARGET_ARCH}} CGO_ENABLED=1 \
         CC='zig cc -target {{.ZIG_TARGET}}' \
         go build -trimpath -buildmode=c-shared -ldflags="-X=main.version={{.TUN2SOCKS_VERSION}}" -o '{{.OUTPUT_LIB}}' '{{.TASKFILE_DIR}}/outline/electron'
+        rm -f '{{.WINRES_DIR}}'/rsrc_windows_*.syso
 
   windows:
     deps: [windows:386]
