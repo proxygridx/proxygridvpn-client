@@ -92,11 +92,12 @@ signing identities and app IDs. More detail: [client/README.md](client/README.md
 
 ## Code signing policy
 
-Windows releases are intended to be signed through the SignPath Foundation program; the
-application is pending and current builds are unsigned. Roles, approvals and what is signed:
+Windows releases are intended to be signed through the SignPath Foundation program. We have
+not applied yet, and current builds are unsigned. Roles, approvals and what will be signed:
 [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+Once signing is active, signed releases will carry this attribution: free code signing provided
+by [SignPath.io](https://about.signpath.io), certificate by
 [SignPath Foundation](https://signpath.org).
 
 ## Contributing

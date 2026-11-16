@@ -1,10 +1,12 @@
 # Code signing policy
 
-**Status:** ProxyGridVPN has applied for free code signing through the
-[SignPath Foundation](https://signpath.org) program. Until that application is approved,
-Windows builds are **unsigned**. This page describes how signing will work once it is active.
+**Status:** ProxyGridVPN intends to apply for free code signing through the
+[SignPath Foundation](https://signpath.org) program and has not applied yet. Until an application
+is approved, Windows builds are **unsigned**. This page describes how signing will work once it
+is active.
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+Once signing is active, signed releases will carry this attribution: free code signing provided
+by [SignPath.io](https://about.signpath.io), certificate by
 [SignPath Foundation](https://signpath.org).
 
 ## What is signed
