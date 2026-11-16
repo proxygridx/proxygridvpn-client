@@ -12,7 +12,8 @@ require (
 	golang.getoutline.org/sdk v0.1.0-rc1.0.20260915234250-3f66d9c28049
 	golang.getoutline.org/sdk/x v0.0.9-alpha.1
 	golang.org/x/mobile v0.0.0-20250813145510-f12310a0cfd9
-	golang.org/x/sys v0.36.0
+	golang.org/x/net v0.53.0
+	golang.org/x/sys v0.43.0
 )
 
 require (
@@ -79,14 +80,13 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/crypto v0.42.0 // indirect
-	golang.org/x/image v0.30.0 // indirect
-	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/net v0.44.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/term v0.35.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
-	golang.org/x/tools v0.37.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/image v0.41.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/term v0.42.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
