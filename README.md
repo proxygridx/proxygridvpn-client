@@ -40,7 +40,7 @@ servers) is operated privately and is **not** part of this repository.
 
 ## Install on Windows
 
-Download the [Windows 10/11 beta](https://github.com/proxygridx/proxygridvpn-client/releases/tag/proxygridvpn-v1.0.0-beta.1).
+Download a [Windows 10/11 beta](https://github.com/proxygridx/proxygridvpn-client/releases).
 Choose the `ia32.exe` installer for Intel or AMD PCs (including 64-bit), or `arm64.exe` for
 Windows on ARM. Both are **unsigned**: [verify the download](docs/windows.md#verify-a-download)
 before running it. Beta 1 works with your own server key; ProxyGrid account sign-in is not

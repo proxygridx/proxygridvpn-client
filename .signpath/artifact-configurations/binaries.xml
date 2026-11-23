@@ -3,10 +3,12 @@
      copy is configured in the SignPath project. Signs only files built from this repository;
      Electron/Chromium runtime files, elevate.exe and other upstream binaries are left as they are. -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
   <zip-file>
     <directory path="ia32">
-      <pe-file-set>
-        <include path="app/ProxyGridVPN.exe" />
+      <pe-file-set product-name="ProxyGridVPN" product-version="${version}">
         <include path="app/resources/app.asar.unpacked/output/client/windows-386/tun2socks.exe" />
         <include path="app/resources/app.asar.unpacked/output/client/windows-386/backend.dll" />
         <include path="helpers/OutlineService.exe" />
@@ -17,8 +19,7 @@
       </pe-file-set>
     </directory>
     <directory path="arm64">
-      <pe-file-set>
-        <include path="app/ProxyGridVPN.exe" />
+      <pe-file-set product-name="ProxyGridVPN" product-version="${version}">
         <include path="app/resources/app.asar.unpacked/output/client/windows-arm64/tun2socks.exe" />
         <include path="app/resources/app.asar.unpacked/output/client/windows-arm64/backend.dll" />
         <include path="helpers/OutlineService.exe" />
