@@ -38,23 +38,23 @@ servers) is operated privately and is **not** part of this repository.
   associations (RFC 5452 kept), network-change and wake handling, tunnel start/stop races and
   packet-relay robustness. See [docs/proxygridvpn/STABILITY.md](docs/proxygridvpn/STABILITY.md).
 
-## Platforms
+## Install on Windows
 
-ProxyGridVPN has **not had a public release yet**. A platform is listed as supported only once a
-build has been tested end to end on real devices.
+Download the [Windows 10/11 beta](https://github.com/proxygridx/proxygridvpn-client/releases/tag/proxygridvpn-v1.0.0-beta.1).
+Choose the `ia32.exe` installer for Intel or AMD PCs (including 64-bit), or `arm64.exe` for
+Windows on ARM. Both are **unsigned**: [verify the download](docs/windows.md#verify-a-download)
+before running it. Beta 1 works with your own server key; ProxyGrid account sign-in is not
+configured in these installers.
+
+## Platforms
 
 | Platform | Minimum OS | Status |
 |---|---|---|
 | macOS | 12.4 | Builds and signs (development); device testing in progress |
-| Windows | 10 / 11 | Unsigned installers built in CI; device testing in progress |
+| Windows | 10 / 11 | Public beta; [install and uninstall](docs/windows.md) |
 | Android | 10 | Debug builds in CI; device testing in progress |
 | iOS | 15.5 | Builds and signs (development); device testing in progress |
 | Linux (Debian-based) | — | Builds from source; not tested |
-
-Downloads will be published in this repository's
-[Releases](https://github.com/proxygridx/proxygridvpn-client/releases) and on
-[proxygrid.net](https://proxygrid.net) once builds are tested. Windows install, uninstall,
-build and verification steps: [docs/windows.md](docs/windows.md).
 
 ## How it connects
 
@@ -92,8 +92,8 @@ signing identities and app IDs. More detail: [client/README.md](client/README.md
 
 ## Code signing policy
 
-Windows releases are intended to be signed through the SignPath Foundation program. We have
-not applied yet, and current builds are unsigned. Roles, approvals and what will be signed:
+Windows releases are intended to be signed through the SignPath Foundation program.
+The current Windows beta is unsigned. Roles, approvals and what will be signed:
 [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
 
 Once signing is active, signed releases will carry this attribution: free code signing provided
