@@ -70,7 +70,12 @@ npm run action client/electron/build windows -- --arch ia32
 ```
 
 Release builds are made by the public workflow
-[`windows-release.yml`](../.github/workflows/windows-release.yml).
+[`windows-release.yml`](../.github/workflows/windows-release.yml). Before tagging an official
+release, set `PROXYGRID_COGNITO_REGION`, `PROXYGRID_USER_POOL_ID` and
+`PROXYGRID_USER_POOL_CLIENT_ID` in **Settings > Secrets and variables > Actions > Variables**.
+These are public Cognito identifiers for the hosted service, not credentials. The workflow
+checks that both packaged apps contain them before staging anything for signing. For
+own-server-only development builds, leave all three unset.
 
 ## Verify a download
 
@@ -78,18 +83,21 @@ Each release lists SHA-256 checksums in `SHA256SUMS.txt`, and GitHub keeps a bui
 attestation that ties each file to the workflow run and commit that built it.
 
 ```powershell
-# 1. Checksum
-Get-FileHash .\ProxyGridVPN-1.0.0-ia32.exe -Algorithm SHA256
+# 1. Compare the hash with the entry for the same filename in SHA256SUMS.txt.
+$installer = '.\ProxyGridVPN-1.0.0-beta.1-ia32.exe' # use the file you downloaded
+Get-FileHash $installer -Algorithm SHA256
 # 2. Provenance (GitHub CLI)
-gh attestation verify .\ProxyGridVPN-1.0.0-ia32.exe --repo proxygridx/proxygridvpn-client
+gh attestation verify $installer --repo proxygridx/proxygridvpn-client `
+  --signer-workflow proxygridx/proxygridvpn-client/.github/workflows/windows-release.yml `
+  --source-ref refs/tags/proxygridvpn-v1.0.0-beta.1  # use the tag you downloaded
 ```
 
 Once signing is active (see the [code signing policy](../CODE_SIGNING_POLICY.md)), also check the
 Authenticode signature:
 
 ```powershell
-Get-AuthenticodeSignature .\ProxyGridVPN-1.0.0-ia32.exe | Format-List Status, SignerCertificate
-signtool verify /pa /v .\ProxyGridVPN-1.0.0-ia32.exe   # from the Windows SDK
+Get-AuthenticodeSignature $installer | Format-List Status, SignerCertificate
+signtool verify /pa /v $installer   # from the Windows SDK
 ```
 
 `Status` must be `Valid`, and the signer must be `SignPath Foundation`.
