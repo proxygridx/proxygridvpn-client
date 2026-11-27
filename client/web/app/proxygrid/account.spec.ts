@@ -17,6 +17,7 @@ import {InMemoryStorage} from '@outline/infrastructure/memory_storage';
 import {AccountServerStore, ProxyGridAccount} from './account';
 import {ProxyGridApi, ProxyGridApiError, VpnStatus} from './api';
 import {CognitoClient, CognitoError, CognitoTokens} from './cognito';
+import {ERROR_MESSAGES} from './errors';
 import {PROXYGRID_SESSION_STORAGE_NAME, ProxyGridSession} from './session';
 import {ServerAlreadyAdded} from '../../model/errors';
 
@@ -322,7 +323,7 @@ describe('ProxyGridAccount', () => {
     api.status.and.rejectWith(new ProxyGridApiError(0, 'offline'));
     await account.refresh();
     expect(account.current.status).not.toBeNull();
-    expect(account.current.error).toEqual('offline');
+    expect(account.current.error).toEqual(ERROR_MESSAGES.unreachable);
   });
 
   it('remembers the selected region', () => {

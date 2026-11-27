@@ -24,6 +24,7 @@ import * as Sentry from '@sentry/electron/main';
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   MenuItemConstructorOptions,
@@ -47,6 +48,11 @@ import {
   TunnelStatus,
 } from '../web/app/outline_server_repository/vpn';
 import * as errors from '../web/model/errors';
+import {
+  BROWSER_DOWNLOAD_URL,
+  OPEN_BROWSER_URL,
+  openBrowserLink,
+} from '../web/app/proxygrid/open_browser';
 
 // TODO: can we define these macros in other .d.ts files with default values?
 // Build-time macros injected by webpack's DefinePlugin:
@@ -285,6 +291,11 @@ function updateTray(status: TunnelStatus) {
   let menuTemplate = [
     {label: statusString, enabled: false},
     {type: 'separator'} as MenuItemConstructorOptions,
+    {
+      label: 'Open ProxyGrid Browser',
+      click: (): void => void openProxyGridBrowser(),
+    },
+    {type: 'separator'} as MenuItemConstructorOptions,
     {label: localizedStrings['quit'], click: quitApp},
   ];
   if (IS_LINUX) {
@@ -298,6 +309,56 @@ function updateTray(status: TunnelStatus) {
     ];
   }
   tray.setContextMenu(Menu.buildFromTemplate(menuTemplate));
+}
+
+// Opens a ProxyGrid Browser link (proxygrid-browser://open or a sign-in handoff link). Returns
+// false when ProxyGrid Browser is not installed or the link is not one this app may open.
+async function openProxyGridBrowserLink(link: string): Promise<boolean> {
+  const result = await openBrowserLink(link, {
+    isBrowserInstalled: () =>
+      !!app.getApplicationNameForProtocol('proxygrid-browser://'),
+    openExternal: target => shell.openExternal(target),
+  });
+  if (result === 'rejected')
+    console.warn('refusing to open a ProxyGrid Browser link');
+  return result === 'opened';
+}
+
+// The "Open ProxyGrid Browser" tray action: opens the browser, or offers the download page.
+async function openProxyGridBrowser() {
+  if (await openProxyGridBrowserLink(OPEN_BROWSER_URL)) return;
+  const options = {
+    type: 'info' as const,
+    message: 'ProxyGrid Browser is not installed.',
+    detail: `Download it from ${BROWSER_DOWNLOAD_URL}`,
+    buttons: ['Download', 'Close'],
+    defaultId: 0,
+    cancelId: 1,
+  };
+  const {response} = mainWindow
+    ? await dialog.showMessageBox(mainWindow, options)
+    : await dialog.showMessageBox(options);
+  if (response === 0) await shell.openExternal(BROWSER_DOWNLOAD_URL);
+}
+
+// Native confirmation for the sign-in handoff. Web content cannot draw or click this dialog.
+async function confirmHandoff(email: string): Promise<boolean> {
+  mainWindow?.show();
+  const options = {
+    type: 'question' as const,
+    message: `Sign in to ProxyGrid Browser as ${email}?`,
+    detail:
+      'ProxyGrid Browser asked to sign in with your ProxyGrid account. It gets its own session; ' +
+      'your password is not shared. Only allow this if you just started it from ProxyGrid Browser.',
+    buttons: ['Allow', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  };
+  const {response} = mainWindow
+    ? await dialog.showMessageBox(mainWindow, options)
+    : await dialog.showMessageBox(options);
+  return response === 0;
 }
 
 function createTrayIconImage(imageName: string) {
@@ -618,6 +679,23 @@ function main() {
               throw e;
             }
             return '';
+          });
+        }
+
+        case 'ConfirmHandoff': {
+          const {email} = JSON.parse(params) as {email: string};
+          if (typeof email !== 'string' || !email || email.length > 320) {
+            return JSON.stringify({allowed: false});
+          }
+          return JSON.stringify({allowed: await confirmHandoff(email)});
+        }
+
+        case 'OpenProxyGridBrowserLink': {
+          const {url: link} = JSON.parse(params) as {url: string};
+          return JSON.stringify({
+            opened:
+              typeof link === 'string' &&
+              (await openProxyGridBrowserLink(link)),
           });
         }
 

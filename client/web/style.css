@@ -35,11 +35,17 @@ body {
    * "infrastructure ink" neutrals, indigo for the VPN product and emerald for a healthy,
    * connected tunnel. The --outline-* names are kept so existing components pick them up.
    */
+  /* ProxyGrid platform tokens, shared by ProxyGridVPN and ProxyGrid Browser. */
+  --pg-primary: #059669;
+  --pg-primary-light: #10b981;
+  --pg-primary-dark: #047857;
+  --pg-slate: #0f172a;
+
   --grid-vpn: #5b5bd6;
   --grid-vpn-strong: #4646c2;
   --grid-vpn-soft: #ececfc;
-  --grid-proxy: #0e9f6e;
-  --grid-connected: #0e9f6e;
+  --grid-proxy: var(--pg-primary);
+  --grid-connected: var(--pg-primary);
   --grid-connected-soft: #def7ec;
   --grid-warning: #d9822b;
   --grid-ink-50: #f7f8fa;
@@ -186,7 +192,7 @@ html.dark {
   --outline-primary-light: rgb(139 140 245 / 14%);
   --grid-vpn: #8b8cf5;
   --grid-vpn-soft: rgb(139 140 245 / 14%);
-  --grid-connected: #2dd4a0;
+  --grid-connected: var(--pg-primary-light);
   --grid-connected-soft: rgb(45 212 160 / 14%);
   --grid-surface-subtle: #15191f;
   --grid-surface-inset: #0e1115;

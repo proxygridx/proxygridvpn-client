@@ -24,6 +24,7 @@ import {getLocalizationFunction, main} from './main';
 import {installDefaultMethodChannel, MethodChannel} from './method_channel';
 import {VpnApi} from './outline_server_repository/vpn';
 import {ElectronVpnApi} from './outline_server_repository/vpn.electron';
+import {DesktopIntegration} from './platform';
 import {SecretBackend} from './secure_storage';
 import {AbstractUpdater} from './updater';
 import {UrlInterceptor} from './url_interceptor';
@@ -194,6 +195,25 @@ const electronSecretBackend: SecretBackend = {
   },
 };
 
+const electronDesktopIntegration: DesktopIntegration = {
+  async confirmHandoff(email: string) {
+    const out = await window.electron.methodChannel.invoke(
+      'invoke-method',
+      'ConfirmHandoff',
+      JSON.stringify({email})
+    );
+    return (JSON.parse(out) as {allowed: boolean}).allowed === true;
+  },
+  async openBrowserLink(url: string) {
+    const out = await window.electron.methodChannel.invoke(
+      'invoke-method',
+      'OpenProxyGridBrowserLink',
+      JSON.stringify({url})
+    );
+    return (JSON.parse(out) as {opened: boolean}).opened === true;
+  },
+};
+
 main({
   getVpnApi(): VpnApi | undefined {
     if (isOsSupported) {
@@ -207,4 +227,5 @@ main({
   getVpnServiceInstaller: () => new ElectronVpnInstaller(),
   quitApplication: () => window.electron.methodChannel.send('quit-app'),
   getSecretBackend: () => electronSecretBackend,
+  getDesktopIntegration: () => electronDesktopIntegration,
 }).catch(console.error);

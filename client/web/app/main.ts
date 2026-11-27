@@ -180,12 +180,14 @@ export function main(platform: OutlinePlatform) {
         platform.getVpnServiceInstaller(),
         platform.quitApplication
       );
-      const {session, account} = createProxyGrid(
+      const {session, account, api} = createProxyGrid(
         environmentVars,
         secretStorage,
         serverRepo
       );
       app.attachProxyGrid(account, session);
+      const desktop = platform.getDesktopIntegration?.();
+      if (desktop) app.attachHandoff(session, api, desktop);
     },
     e => {
       onUnexpectedError(e);
@@ -227,7 +229,7 @@ function createProxyGrid(
     get: name => window.localStorage.getItem(name),
     set: (name, value) => window.localStorage.setItem(name, value),
   });
-  return {session, account};
+  return {session, account, api};
 }
 
 function onUnexpectedError(error: Error) {
