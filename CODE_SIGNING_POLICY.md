@@ -16,14 +16,14 @@ submitted for signing:
 
 | File | Built from |
 |---|---|
-| `ProxyGridVPN.exe` | Electron app packaged from `client/` |
 | `tun2socks.exe`, `backend.dll` | Go code in `client/go/` |
 | `OutlineService.exe` (ProxyGridVPN routing service) | C# code in `client/electron/windows/OutlineService/` |
 | `smartdnsblock.exe` | C++ code in `client/electron/windows/smartdnsblock/` |
 | `ProxyGridVPN-<version>-<arch>.exe` (installer) | NSIS installer built by electron-builder |
 
 Third-party binaries keep their upstream signatures, or stay unsigned, and are never signed
-with the ProxyGridVPN identity. These are the TAP-Windows6 driver (signed by Microsoft for
+with the ProxyGridVPN identity. This includes the branded `ProxyGridVPN.exe` launcher
+(a repackaged Electron runtime, not compiled from this repository), the TAP-Windows6 driver (signed by Microsoft for
 OpenVPN), `tapctl.exe` (OpenVPN, GPLv2, built unmodified from pinned OpenVPN source in the
 release workflow), Electron/Chromium runtime libraries, `elevate.exe`
 (electron-builder), Newtonsoft.Json and NSIS plugins. The full
