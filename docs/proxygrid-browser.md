@@ -32,6 +32,7 @@ token (Cognito `RevokeToken`).
 ## Cognito client per app
 
 The build reads the Cognito app client ID from `PROXYGRID_USER_POOL_CLIENT_ID` (repository
-variable for CI). It is the shared website client today. When the backend's own
-`proxygrid-vpn-prod` client exists, set the variable to its ID; already installed builds keep
-using the shared client until they update.
+variable for CI). Builds use ProxyGridVPN's own client, `proxygrid-vpn-prod`
+(`6m9dciajpmhcg3pi19htvqor8t`, SRP and refresh only); the backend accepts handoff requests only
+from it. Beta 1 was built with the shared client (`7q16t0jtuhsdtl4ut53b5j88cn`), which keeps
+working.
