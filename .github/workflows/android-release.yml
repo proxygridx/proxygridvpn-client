@@ -1,0 +1,189 @@
+# Copyright 2026 ProxyGrid
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Android release: build a release-signed AAB and universal APK, check that the ProxyGrid account
+# configuration is inside, then install and launch the APK on an emulator. A tag push
+# (proxygridvpn-android-v<version>) also attaches the APK, AAB and checksums to a draft
+# prerelease.
+#
+# The signing key lives only in the `android-release` environment (secrets
+# ANDROID_KEY_STORE_CONTENTS, base64 PKCS#12 with alias "privatekey", and
+# ANDROID_KEY_STORE_PASSWORD). The environment is limited to main and release tags.
+name: ProxyGridVPN / Android release
+
+on:
+  push:
+    tags:
+      - 'proxygridvpn-android-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (for example 1.0.0-beta.1). Tag builds take it from the tag.'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '0.0.1-ci' }}
+
+jobs:
+  build:
+    name: Build (release-signed)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    environment: android-release
+    env:
+      PROXYGRID_COGNITO_REGION: ${{ vars.PROXYGRID_COGNITO_REGION }}
+      PROXYGRID_USER_POOL_ID: ${{ vars.PROXYGRID_USER_POOL_ID }}
+      PROXYGRID_USER_POOL_CLIENT_ID: ${{ vars.PROXYGRID_USER_POOL_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+      - name: Check the version and account configuration
+        run: |
+          v="${VERSION#proxygridvpn-android-v}"
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "version '$v' is not semver"; exit 1
+          fi
+          echo "APP_VERSION=$v" >> "$GITHUB_ENV"
+          for n in PROXYGRID_COGNITO_REGION PROXYGRID_USER_POOL_ID PROXYGRID_USER_POOL_CLIENT_ID; do
+            [ -n "${!n}" ] || { echo "repository variable $n is not set"; exit 1; }
+          done
+      # npm ci installs exactly the versions in package-lock.json. Caches are not used.
+      - run: npm ci
+      - name: Build
+        env:
+          ANDROID_KEY_STORE_CONTENTS: ${{ secrets.ANDROID_KEY_STORE_CONTENTS }}
+          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+        run: |
+          npm run action client/src/cordova/build android -- --buildMode=release \
+            --versionName="$APP_VERSION"
+          rm -f client/platforms/android/keystore.p12
+      - name: Collect and verify
+        run: |
+          set -euo pipefail
+          a=client/platforms/android
+          mkdir -p dist
+          ls -la "$a" "$a/app/build/outputs/bundle/release"
+          cp "$a/universal.apk" "dist/ProxyGridVPN-$APP_VERSION.apk"
+          cp "$a/app/build/outputs/bundle/release/app-release.aab" "dist/ProxyGridVPN-$APP_VERSION.aab"
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          echo "build-tools: $bt"
+          "${bt}apksigner" verify --print-certs "dist/ProxyGridVPN-$APP_VERSION.apk" | tee signers.txt
+          grep -q 'CN=ProxyGrid' signers.txt
+          "${bt}aapt2" dump badging "dist/ProxyGridVPN-$APP_VERSION.apk" > badging.txt
+          grep -E "^package:" badging.txt
+          grep -q "name='net.proxygrid.vpn'" badging.txt
+          grep -q "versionName='$APP_VERSION'" badging.txt
+          # The web app is bundled into the APK; the public Cognito identifiers must be in it.
+          unzip -p "dist/ProxyGridVPN-$APP_VERSION.apk" 'assets/www/*' > www.js
+          for n in PROXYGRID_USER_POOL_ID PROXYGRID_USER_POOL_CLIENT_ID; do
+            grep -qF "${!n}" www.js || { echo "$n missing from the packaged app"; exit 1; }
+          done
+          echo "account configuration present"
+          (cd dist && sha256sum * | tee SHA256SUMS.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  emulator-test:
+    name: Install and launch on an emulator (API ${{ matrix.api }})
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 35]
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: android-release
+          path: dist
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            adb install -r dist/*.apk
+            adb shell pm list packages | grep -q '^package:net.proxygrid.vpn$'
+            adb logcat -c
+            adb shell monkey -p net.proxygrid.vpn -c android.intent.category.LAUNCHER 1
+            sleep 20
+            adb shell pidof net.proxygrid.vpn
+            adb exec-out screencap -p > screen.png
+            adb logcat -d > logcat.txt
+            ! grep -E 'FATAL EXCEPTION|ANR in net\.proxygrid\.vpn' logcat.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: emulator-api${{ matrix.api }}
+          path: |
+            screen.png
+            logcat.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release:
+    needs: [build, emulator-test]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/proxygridvpn-android-v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: android-release
+          path: dist
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.apk
+            dist/*.aab
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${GITHUB_REF_NAME#proxygridvpn-android-v}"
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" --draft --prerelease --verify-tag \
+            --title "ProxyGridVPN $v for Android" \
+            --notes "Android test build, not on Google Play. Install the .apk; the .aab is for Play. Checksums: SHA256SUMS.txt."
