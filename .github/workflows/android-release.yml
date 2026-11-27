@@ -91,12 +91,15 @@ jobs:
           set -euo pipefail
           a=client/platforms/android
           mkdir -p dist
+          ls -la "$a" "$a/app/build/outputs/bundle/release"
           cp "$a/universal.apk" "dist/ProxyGridVPN-$APP_VERSION.apk"
           cp "$a/app/build/outputs/bundle/release/app-release.aab" "dist/ProxyGridVPN-$APP_VERSION.aab"
-          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
-          "$apksigner" verify --print-certs "dist/ProxyGridVPN-$APP_VERSION.apk" | grep -E 'Signer #1 certificate (DN|SHA-256)'
-          aapt=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
-          "$aapt" dump badging "dist/ProxyGridVPN-$APP_VERSION.apk" | grep -E "^package:" | tee badging.txt
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          echo "build-tools: $bt"
+          "${bt}apksigner" verify --print-certs "dist/ProxyGridVPN-$APP_VERSION.apk" | tee signers.txt
+          grep -q 'CN=ProxyGrid' signers.txt
+          "${bt}aapt2" dump badging "dist/ProxyGridVPN-$APP_VERSION.apk" > badging.txt
+          grep -E "^package:" badging.txt
           grep -q "name='net.proxygrid.vpn'" badging.txt
           grep -q "versionName='$APP_VERSION'" badging.txt
           # The web app is bundled into the APK; the public Cognito identifiers must be in it.
