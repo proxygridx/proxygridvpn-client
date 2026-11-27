@@ -45,6 +45,12 @@ function InstallDir {
 
 Write-Host "Installer: $Installer"
 Write-Host "OS: $((Get-CimInstance Win32_OperatingSystem).Caption) $([Environment]::OSVersion.Version)"
+if ($ExpectedVersion) {
+  Check 'installer product name and version' {
+    $vi = (Get-Item $Installer).VersionInfo
+    $vi.ProductName -eq 'ProxyGridVPN' -and $vi.ProductVersion -eq $ExpectedVersion
+  }
+}
 
 $p = Start-Process -FilePath $Installer -ArgumentList '/S' -Wait -PassThru
 Write-Host "installer exit code: $($p.ExitCode)"
@@ -57,6 +63,12 @@ if ($dir) {
   Check 'devcon.exe not installed' { -not (Test-Path (Join-Path $dir 'tap-windows6\devcon.exe')) }
   Check 'routing service files installed' {
     (Test-Path (Join-Path $dir 'OutlineService.exe')) -and (Test-Path (Join-Path $dir 'smartdnsblock.exe'))
+  }
+  if ($ExpectedVersion) {
+    Check 'routing service product name and version' {
+      $vi = (Get-Item (Join-Path $dir 'OutlineService.exe')).VersionInfo
+      $vi.ProductName -eq 'ProxyGridVPN' -and $vi.ProductVersion -eq $ExpectedVersion
+    }
   }
   # Version resources on the Go and C++ binaries (SignPath metadata restrictions rely on them).
   $versioned = @(

@@ -10,7 +10,6 @@ the same set with arm64 builds.
 | File | Source | Licence |
 |---|---|---|
 | `ProxyGridVPN-<version>-<arch>.exe` (installer) | electron-builder NSIS, `client/electron/custom_install_steps.nsh` | Apache-2.0 (our scripts); NSIS is zlib |
-| `ProxyGridVPN.exe` | Electron runtime with our app (`resources/app.asar`) from `client/` | Apache-2.0 (app); Electron MIT |
 | `resources/app.asar.unpacked/.../tun2socks.exe`, `backend.dll` | `client/go` | Apache-2.0 |
 | `OutlineService.exe` (service `ProxyGridVPNService`) | `client/electron/windows/OutlineService` (C#) | Apache-2.0 |
 | `smartdnsblock.exe` | `client/electron/windows/smartdnsblock` (C++) | Apache-2.0 |
@@ -24,6 +23,7 @@ from `smartdnsblock.rc`). The installer smoke test checks it on the installed fi
 
 | File | Origin | Licence | Signature |
 |---|---|---|---|
+| `ProxyGridVPN.exe` | Electron's prebuilt, rebranded launcher; the app code is in `resources/app.asar` | Electron MIT; app Apache-2.0 | Not submitted to SignPath |
 | `tap-windows6/tap0901.sys`, `tap0901.cat`, `OemVista.inf` | [OpenVPN tap-windows6](https://github.com/OpenVPN/tap-windows6) 9.27 driver, `third_party/tap-windows6` | MIT / GPL-2.0 (dual) | Microsoft Windows Hardware Compatibility Publisher (kept) |
 | `tap-windows6/tapctl.exe` | [OpenVPN](https://github.com/OpenVPN/openvpn) `src/tapctl` at v2.7.9 (commit `7b60c2a`), compiled in CI by `client/electron/windows/tapctl/build_tapctl.ps1` | GPL-2.0, run as a separate program; the installer ships its notice and licence (`tap-windows6\TAPCTL.txt`, `COPYRIGHT.GPL`) | Unsigned (upstream code) |
 | `Newtonsoft.Json.dll` | Json.NET 11.0.2, `third_party/newtonsoft` | MIT | Unsigned |

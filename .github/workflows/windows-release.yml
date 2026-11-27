@@ -94,6 +94,9 @@ jobs:
           if ($v -notmatch '^(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$') { throw "version '$v' is not semver" }
           $num = "$($Matches[1]),$($Matches[2]),$($Matches[3]),0"
           "PROXYGRIDVPN_VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # .NET exposes AssemblyInformationalVersion as the PE ProductVersion.
+          Add-Content client\electron\windows\OutlineService\OutlineService\Properties\AssemblyInfo.cs `
+            "[assembly: AssemblyInformationalVersion(`"$v`")]"
           # Read by client/go/Taskfile.yml (tun2socks.exe, backend.dll); version.h is read by
           # smartdnsblock.rc.
           @(
@@ -119,7 +122,7 @@ jobs:
             --autoUpdateUrl="${{ vars.PROXYGRIDVPN_UPDATE_URL || 'https://proxygrid.net/vpn/download/windows/' }}"
       - name: Verify packaged account configuration
         env:
-          REQUIRE_ACCOUNT_CONFIG: ${{ github.repository == 'proxygridx/proxygridvpn-client' && startsWith(github.ref, 'refs/tags/proxygridvpn-v') }}
+          REQUIRE_ACCOUNT_CONFIG: ${{ github.repository == 'proxygridx/proxygridvpn-client' && (startsWith(github.ref, 'refs/tags/proxygridvpn-v') || github.event_name == 'workflow_dispatch') }}
         run: node client/electron/windows/test/verify_account_config.cjs output/client/electron/build/win-${{ matrix.arch }}-unpacked/resources/app.asar
       - name: Stage files for signing
         shell: bash
@@ -145,7 +148,10 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      version: ${{ steps.version.outputs.value }}
     steps:
+      - id: version
+        run: echo "value=${VERSION#proxygridvpn-v}" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: stage-*
@@ -161,7 +167,7 @@ jobs:
 
   sign-binaries:
     needs: collect-binaries
-    if: vars.SIGNPATH_ORGANIZATION_ID != '' && github.event_name != 'pull_request'
+    if: vars.SIGNPATH_ORGANIZATION_ID != '' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/proxygridvpn-v')
     runs-on: ubuntu-24.04
     environment: release-signing
     steps:
@@ -172,6 +178,8 @@ jobs:
           project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
           artifact-configuration-slug: binaries
+          parameters: |
+            version: "${{ needs.collect-binaries.outputs.version }}"
           github-artifact-id: ${{ needs.collect-binaries.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 7200
@@ -229,12 +237,20 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Install and uninstall the unsigned ia32 installer silently on a clean GitHub Windows runner and
-  # check what it changes. (The arm64 installer cannot run on the x64 runner.)
+  # Exercise each installer and its network driver on a compatible Windows host.
   installer-smoke-test:
+    name: Install, connect and uninstall (${{ matrix.arch }})
     needs: package
     if: always() && needs.package.result == 'success'
-    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: ia32
+            os: windows-2022
+          - arch: arm64
+            os: windows-11-arm
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -248,13 +264,13 @@ jobs:
       - run: go build -o ss-test-server.exe ./client/go/outline/cmd/ss-test-server
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: installer-ia32
+          name: installer-${{ matrix.arch }}
           path: dist
       - name: Install, check, VPN session test, uninstall, check
         shell: pwsh
         run: |
           pwsh client/electron/windows/test/installer_smoke_test.ps1 `
-            -Installer (Get-ChildItem dist\*-ia32.exe | Select-Object -First 1).FullName `
+            -Installer (Get-Item "dist\ProxyGridVPN-$($env:VERSION -replace '^proxygridvpn-v', '')-${{ matrix.arch }}.exe").FullName `
             -SessionServerExe (Resolve-Path ss-test-server.exe).Path `
             -ExpectedVersion ($env:VERSION -replace '^proxygridvpn-v', '')
 
@@ -279,8 +295,8 @@ jobs:
           retention-days: 7
 
   sign-installers:
-    needs: collect-installers
-    if: always() && needs.collect-installers.result == 'success' && vars.SIGNPATH_ORGANIZATION_ID != '' && github.event_name != 'pull_request'
+    needs: [collect-binaries, collect-installers]
+    if: always() && needs.collect-installers.result == 'success' && vars.SIGNPATH_ORGANIZATION_ID != '' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/proxygridvpn-v')
     runs-on: ubuntu-24.04
     environment: release-signing
     steps:
@@ -291,6 +307,8 @@ jobs:
           project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
           artifact-configuration-slug: installers
+          parameters: |
+            version: "${{ needs.collect-binaries.outputs.version }}"
           github-artifact-id: ${{ needs.collect-installers.outputs.artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 7200
@@ -323,18 +341,28 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           subject-path: dist/*.exe
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/proxygridvpn-v')
+        with:
+          path: source
+          persist-credentials: false
       - name: Draft release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/proxygridvpn-v')
         env:
           GH_TOKEN: ${{ github.token }}
           SIGNED: ${{ needs.sign-installers.result == 'success' }}
         run: |
+          base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME"
+          version="${GITHUB_REF_NAME#proxygridvpn-v}"
           if [ "$SIGNED" = "true" ]; then
-            NOTE="Windows installers are signed (code signing policy: CODE_SIGNING_POLICY.md)."
+            echo 'Windows installers are code-signed.' > notes.md
           else
-            NOTE="Windows installers are NOT code-signed. Windows SmartScreen will warn. Code signing policy: CODE_SIGNING_POLICY.md."
+            echo '**Unsigned beta/test installers:** Windows SmartScreen may warn.' > notes.md
           fi
+          echo >> notes.md
+          cat "source/docs/releases/$version.md" >> notes.md
+          printf '\n[Verify downloads](%s/docs/windows.md#verify-a-download) · [Code signing policy](%s/CODE_SIGNING_POLICY.md) · [Privacy policy](%s/PRIVACY.md)\n' "$base" "$base" "$base" >> notes.md
           gh release create "$GITHUB_REF_NAME" dist/*.exe dist/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --draft --prerelease --verify-tag \
             --title "ProxyGridVPN ${GITHUB_REF_NAME#proxygridvpn-v}" \
-            --notes "$NOTE Verify downloads: docs/windows.md#verify-a-download"
+            --notes-file notes.md

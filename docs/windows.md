@@ -77,6 +77,21 @@ These are public Cognito identifiers for the hosted service, not credentials. Th
 checks that both packaged apps contain them before staging anything for signing. For
 own-server-only development builds, leave all three unset.
 
+To prepare a candidate without a tag or release, run the workflow manually on
+the reviewed branch with a version such as `1.0.0-beta.2`. Download the
+`installer-ia32` and `installer-arm64` artifacts from that run. Before tagging:
+
+1. Require both native-host install, VPN session and uninstall jobs to pass.
+2. On a clean Windows desktop, install the candidate, sign in with a test
+   account and check its expected plan, usage and regions. With an entitled
+   account, connect to a region, load a page, disconnect and sign out. Record
+   the run, architecture and outcome, not credentials, keys or account details.
+3. Add release notes in `docs/releases/<version>.md`. On maintainer approval,
+   push a signed `proxygridvpn-v<version>` tag on the reviewed main commit. CI
+   rebuilds, tests, optionally signs and attests fresh installers, then attaches
+   them and their checksums to a **draft prerelease**. Verify the *tagged*
+   downloads before publishing the draft. Nothing updates the app's update feed.
+
 ## Verify a download
 
 Each release lists SHA-256 checksums in `SHA256SUMS.txt`, and GitHub keeps a build-provenance

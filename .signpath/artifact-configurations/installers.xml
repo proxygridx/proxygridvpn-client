@@ -2,8 +2,11 @@
 <!-- SignPath artifact configuration "installers" (stage 2): the NSIS installers built from the
      stage-1 signed files. -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
   <zip-file>
-    <pe-file-set>
+    <pe-file-set product-name="ProxyGridVPN" product-version="${version}">
       <include path="ProxyGridVPN-*-ia32.exe" />
       <include path="ProxyGridVPN-*-arm64.exe" />
       <for-each>
