@@ -1,0 +1,92 @@
+# Copyright 2026 ProxyGrid
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# iOS: build the app unsigned for the iOS Simulator, then install and launch it on a simulator and
+# check that it starts with the ProxyGrid account configuration. The VPN itself cannot connect in
+# the Simulator (no Network Extension support); device and TestFlight builds need Apple signing
+# (see docs/ios.md).
+name: ProxyGridVPN / iOS simulator
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ios-simulator.yml'
+      - 'client/src/cordova/**'
+      - 'client/web/**'
+      - 'client/go/**'
+      - 'client/config.xml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    name: Build and launch on the iOS Simulator
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      PROXYGRID_COGNITO_REGION: ${{ vars.PROXYGRID_COGNITO_REGION }}
+      PROXYGRID_USER_POOL_ID: ${{ vars.PROXYGRID_USER_POOL_ID }}
+      PROXYGRID_USER_POOL_CLIENT_ID: ${{ vars.PROXYGRID_USER_POOL_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: npm ci
+      - name: Build the Go library (Tun2socks.xcframework)
+        run: go tool task client:tun2socks:ios
+      - name: Prepare the Cordova iOS project
+        run: npm run action client/src/cordova/setup ios -- --verbose
+      - name: Build for the Simulator (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -workspace client/src/cordova/apple/client.xcworkspace -scheme Outline \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-sim \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+      - name: Install, launch and check
+        run: |
+          set -euo pipefail
+          app=$(find build/ios-sim/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -1)
+          echo "app: $app"
+          id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
+          echo "bundle id: $id"
+          test "$id" = net.proxygrid.vpn.ios
+          grep -rqF "$PROXYGRID_USER_POOL_ID" "$app/www" || { echo 'account configuration missing'; exit 1; }
+          echo 'account configuration present'
+          udid=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r,v in sorted(d.items(), reverse=True) if 'iOS' in r for x in v if x['name'].startswith('iPhone')))")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" "$app"
+          xcrun simctl launch "$udid" "$id"
+          sleep 20
+          xcrun simctl spawn "$udid" launchctl list | grep -F "$id"
+          xcrun simctl io "$udid" screenshot screen.png
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: ios-simulator
+          path: screen.png
+          if-no-files-found: ignore
+          retention-days: 14
