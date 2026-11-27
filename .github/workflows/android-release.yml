@@ -24,6 +24,8 @@ name: ProxyGridVPN / Android release
 
 on:
   push:
+    # Temporary: exercise the workflow from its branch before it is on main.
+    branches: [feat/android-release]
     tags:
       - 'proxygridvpn-android-v*'
   workflow_dispatch:
