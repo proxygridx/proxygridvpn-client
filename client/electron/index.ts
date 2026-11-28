@@ -245,8 +245,7 @@ function setupWindow(): void {
   });
   if (os.platform() === 'win32') {
     // On Windows we hide the app from the taskbar.
-    mainWindow.on('minimize', (event: Event) => {
-      event.preventDefault();
+    mainWindow.on('minimize', () => {
       mainWindow.hide();
     });
   }
