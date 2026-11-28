@@ -17,8 +17,8 @@
     "capacitor:sync:before": "cd ../.. && go tool task -v client:tun2socks:$CAPACITOR_PLATFORM_NAME && ([ \"$CAPACITOR_PLATFORM_NAME\" != \"android\" ] || go tool task -v client:android:configure)"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.3.1",
     "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.1",
     "@outline/infrastructure": "file:../../infrastructure",
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^7.1.4",
@@ -32,11 +32,11 @@
     "webpack-merge": "^5.8.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
     "@capacitor/app": "^8.1.1",
-    "@capacitor/ios": "^8.3.1",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.3.1",
-    "@capacitor/android": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@capacitor/splash-screen": "8.0.1",
     "@polymer/polymer": "^3.5.1",
     "@sentry/browser": "10.75.0",
@@ -44,6 +44,8 @@
     "@webcomponents/webcomponentsjs": "^2.4.4",
     "capacitor-plugin-outline": "file:./plugins/capacitor-plugin-outline",
     "core-js": "^3.49.0",
+    "postcss": "^8.5.34",
+    "postcss-rtl": "^2.0.0",
     "regenerator-runtime": "^0.14.1",
     "web-animations-js": "^2.3.2"
   }
