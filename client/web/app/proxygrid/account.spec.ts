@@ -109,8 +109,10 @@ function setup(now = 0) {
     'status',
     'createKey',
     'keyAccess',
+    'plans',
   ]);
   api.status.and.resolveTo(status());
+  api.plans.and.resolveTo({plans: []});
   api.createKey.and.resolveTo({
     key: {key_id: 'k1', region: 'ap-northeast-1', status: 'active'},
     ssconf_url:
@@ -324,6 +326,35 @@ describe('ProxyGridAccount', () => {
     await account.refresh();
     expect(account.current.status).not.toBeNull();
     expect(account.current.error).toEqual(ERROR_MESSAGES.unreachable);
+  });
+
+  it('lists only active regions and moves off a region that has no node', async () => {
+    const {session, account, api} = setup();
+    account.selectRegion('eu-central-1');
+    api.plans.and.resolveTo({
+      plans: [],
+      regions: [
+        {region: 'ap-northeast-2', label: 'Seoul'},
+        {region: 'ap-northeast-1', label: 'Tokyo'},
+      ],
+    });
+    await session.signIn('a@b.c', 'pw');
+    await account.refresh();
+    expect(account.current.activeRegions?.map(r => r.region)).toEqual([
+      'ap-northeast-2',
+      'ap-northeast-1',
+    ]);
+    expect(account.current.selectedRegion).toEqual('ap-northeast-2');
+  });
+
+  it('keeps working when the active-region list fails to load', async () => {
+    const {session, account, api} = setup();
+    api.plans.and.rejectWith(new ProxyGridApiError(503, 'down'));
+    await session.signIn('a@b.c', 'pw');
+    await account.refresh();
+    expect(account.current.status).not.toBeNull();
+    expect(account.current.error).toBeNull();
+    expect(account.current.activeRegions).toBeNull();
   });
 
   it('remembers the selected region', () => {
