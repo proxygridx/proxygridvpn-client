@@ -20,7 +20,10 @@ param(
   # Optional: run vpn_session_test.ps1 against this test Shadowsocks server before uninstalling.
   [string]$SessionServerExe = '',
   # Optional: the version that tun2socks.exe, backend.dll and smartdnsblock.exe must report.
-  [string]$ExpectedVersion = ''
+  [string]$ExpectedVersion = '',
+  # Optional: check from the installed app that ProxyGrid sign-in (Cognito) is reachable. Needs
+  # Node 22 and a build with the ProxyGrid account configuration.
+  [switch]$AccountSignIn
 )
 
 $ErrorActionPreference = 'Stop'
@@ -107,11 +110,23 @@ Check 'exactly one TAP-Windows6 adapter' {
   @(Get-NetAdapter -IncludeHidden | Where-Object { $_.InterfaceDescription -like 'TAP-Windows Adapter V9*' }).Count -eq 1
 }
 
+function Test-AccountSignIn([string]$when) {
+  Write-Host "`n=== Account sign-in test ($when) ==="
+  & node (Join-Path $PSScriptRoot 'account_signin_test.mjs') (Join-Path $dir 'ProxyGridVPN.exe')
+  $code = $LASTEXITCODE
+  Get-Process -Name ProxyGridVPN -ErrorAction SilentlyContinue | Stop-Process -Force
+  Start-Sleep -Seconds 2
+  Check "account sign-in reaches Cognito ($when)" { $code -eq 0 }
+}
+
+if ($dir -and $AccountSignIn) { Test-AccountSignIn 'after install' }
+
 if ($dir -and $SessionServerExe) {
   Write-Host "`n=== VPN session test ==="
   & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'vpn_session_test.ps1') -InstallDir $dir -ServerExe $SessionServerExe
   Check 'VPN session test' { $LASTEXITCODE -eq 0 }
   Write-Host "=== end of VPN session test ===`n"
+  if ($AccountSignIn) { Test-AccountSignIn 'after VPN connect and disconnect' }
 }
 
 if ($dir) {
