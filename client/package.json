@@ -77,7 +77,7 @@
     "cordova-android": "^15.1.0",
     "cordova-browser": "~6.0.0",
     "cordova-ios": "github:apache/cordova-ios#1a5cd45e2243b239b5045a0ade9d2da1d779b72a",
-    "cordova-lib": "^11.0.0",
+    "cordova-lib": "^13.0.0",
     "cordova-plugin-clipboard": "github:OutlineFoundation/cordova-plugin-clipboard#v2.0.0",
     "cordova-plugin-outline": "file:src/cordova/plugin",
     "cordova-webintent": "github:cordova-misc/cordova-webintent#v2.0.0",
