@@ -111,7 +111,7 @@
     "postcss-rtl": "^2.0.0",
     "prettier": "^2.8.0",
     "pretty-quick": "^2.0.1",
-    "puppeteer": "^13.1.2",
+    "puppeteer": "^25.19.0",
     "raw-loader": "^4.0.2",
     "replace-in-file": "^6.3.5",
     "rimraf": "^2.7.1",
