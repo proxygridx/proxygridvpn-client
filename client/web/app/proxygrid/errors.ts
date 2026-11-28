@@ -35,7 +35,9 @@ export function userMessage(e: unknown): string {
     return e.message;
   }
   if (e instanceof CognitoError && e.code === 'NetworkError') {
-    return ERROR_MESSAGES.unreachable;
+    return e.detail
+      ? `${ERROR_MESSAGES.unreachable} (Reason: ${e.detail}.)`
+      : ERROR_MESSAGES.unreachable;
   }
   if (e instanceof Error) return e.message;
   return String(e);

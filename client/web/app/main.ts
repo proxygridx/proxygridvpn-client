@@ -180,13 +180,14 @@ export function main(platform: OutlinePlatform) {
         platform.getVpnServiceInstaller(),
         platform.quitApplication
       );
+      const desktop = platform.getDesktopIntegration?.();
       const {session, account, api} = createProxyGrid(
         environmentVars,
         secretStorage,
-        serverRepo
+        serverRepo,
+        desktop ? url => desktop.diagnoseConnection(url) : undefined
       );
       app.attachProxyGrid(account, session);
-      const desktop = platform.getDesktopIntegration?.();
       if (desktop) app.attachHandoff(session, api, desktop);
     },
     e => {
@@ -198,7 +199,8 @@ export function main(platform: OutlinePlatform) {
 function createProxyGrid(
   env: EnvironmentVariables,
   secretStorage: Storage,
-  serverRepo: ServerRepository
+  serverRepo: ServerRepository,
+  diagnose?: (url: string) => Promise<string | null>
 ) {
   const configured = !!(
     env.PROXYGRID_COGNITO_REGION &&
@@ -218,7 +220,10 @@ function createProxyGrid(
             'NotConfigured',
             'ProxyGrid sign-in is not configured in this build.'
           );
-        }
+        },
+    undefined,
+    undefined,
+    diagnose
   );
   const session = new ProxyGridSession(cognito, secretStorage);
   const api = new ProxyGridApi(

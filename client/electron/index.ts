@@ -29,6 +29,7 @@ import {
   Menu,
   MenuItemConstructorOptions,
   nativeImage,
+  net as electronNet,
   shell,
   Tray,
 } from 'electron';
@@ -47,12 +48,16 @@ import {
   StartRequestJson,
   TunnelStatus,
 } from '../web/app/outline_server_repository/vpn';
-import * as errors from '../web/model/errors';
+import {
+  describeNetError,
+  isDiagnosableUrl,
+} from '../web/app/proxygrid/network_diagnosis';
 import {
   BROWSER_DOWNLOAD_URL,
   OPEN_BROWSER_URL,
   openBrowserLink,
 } from '../web/app/proxygrid/open_browser';
+import * as errors from '../web/model/errors';
 
 // TODO: can we define these macros in other .d.ts files with default values?
 // Build-time macros injected by webpack's DefinePlugin:
@@ -339,6 +344,33 @@ async function openProxyGridBrowser() {
     ? await dialog.showMessageBox(mainWindow, options)
     : await dialog.showMessageBox(options);
   if (response === 0) await shell.openExternal(BROWSER_DOWNLOAD_URL);
+}
+
+// Explains why the renderer could not reach ProxyGrid sign-in or the API: repeats the request
+// from the main process, where Chromium reports the specific net::ERR_* code. Returns null if
+// the request now succeeds from here too.
+async function diagnoseConnection(target: string): Promise<string | null> {
+  if (!isDiagnosableUrl(target)) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    await electronNet.fetch(target, {
+      method: 'GET',
+      signal: controller.signal,
+      bypassCustomProtocolHandlers: true,
+    });
+    return 'the request works from the app itself but was blocked in its window';
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (controller.signal.aborted) return describeNetError('ERR_TIMED_OUT');
+    const code = /net::(ERR_[A-Z0-9_]+)/.exec(message)?.[1];
+    console.warn(
+      `connection diagnosis for ${new URL(target).host}: ${message}`
+    );
+    return code ? describeNetError(code) : message;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Native confirmation for the sign-in handoff. Web content cannot draw or click this dialog.
@@ -696,6 +728,16 @@ function main() {
             opened:
               typeof link === 'string' &&
               (await openProxyGridBrowserLink(link)),
+          });
+        }
+
+        case 'DiagnoseConnection': {
+          const {url: target} = JSON.parse(params) as {url: string};
+          return JSON.stringify({
+            reason:
+              typeof target === 'string'
+                ? await diagnoseConnection(target)
+                : null,
           });
         }
 

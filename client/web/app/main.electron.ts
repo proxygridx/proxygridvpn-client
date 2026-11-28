@@ -212,6 +212,14 @@ const electronDesktopIntegration: DesktopIntegration = {
     );
     return (JSON.parse(out) as {opened: boolean}).opened === true;
   },
+  async diagnoseConnection(url: string) {
+    const out = await window.electron.methodChannel.invoke(
+      'invoke-method',
+      'DiagnoseConnection',
+      JSON.stringify({url})
+    );
+    return (JSON.parse(out) as {reason: string | null}).reason ?? null;
+  },
 };
 
 main({

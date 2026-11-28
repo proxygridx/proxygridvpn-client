@@ -42,7 +42,9 @@ export type SignInResult =
 export class CognitoError extends Error {
   constructor(
     readonly code: string,
-    message: string
+    message: string,
+    /** For NetworkError: why the request failed, when the platform could tell. */
+    readonly detail?: string
   ) {
     super(message);
     this.name = 'CognitoError';
@@ -56,27 +58,36 @@ export class CognitoClient {
     private readonly config: CognitoConfig,
     private readonly fetchFn: FetchFn = (...args) => fetch(...args),
     private readonly now: () => number = Date.now,
-    private readonly srpFactory: () => SrpClient = newSrpClient
+    private readonly srpFactory: () => SrpClient = newSrpClient,
+    /** Explains a failed request (desktop: the real network error). */
+    private readonly diagnose?: (url: string) => Promise<string | null>
   ) {}
 
   private async call<T>(target: string, body: object): Promise<T> {
+    const url = `https://cognito-idp.${this.config.region}.amazonaws.com/`;
     let response: Response;
     try {
-      response = await this.fetchFn(
-        `https://cognito-idp.${this.config.region}.amazonaws.com/`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-amz-json-1.1',
-            'X-Amz-Target': `AWSCognitoIdentityProviderService.${target}`,
-          },
-          body: JSON.stringify(body),
-        }
-      );
+      response = await this.fetchFn(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.1',
+          'X-Amz-Target': `AWSCognitoIdentityProviderService.${target}`,
+        },
+        body: JSON.stringify(body),
+      });
     } catch {
+      let detail: string | undefined;
+      try {
+        detail = (await this.diagnose?.(url)) ?? undefined;
+      } catch {
+        // No diagnosis available.
+      }
       throw new CognitoError(
         'NetworkError',
-        'Could not reach the sign-in service.'
+        detail
+          ? `Could not reach the sign-in service: ${detail}.`
+          : 'Could not reach the sign-in service.',
+        detail
       );
     }
     const text = await response.text();

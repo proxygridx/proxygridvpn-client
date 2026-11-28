@@ -51,4 +51,6 @@ export interface DesktopIntegration {
   confirmHandoff(email: string): Promise<boolean>;
   /** Opens a proxygrid-browser:// link; false if ProxyGrid Browser is not installed. */
   openBrowserLink(url: string): Promise<boolean>;
+  /** Why a request to ProxyGrid sign-in or the API failed, or null if it now works. */
+  diagnoseConnection(url: string): Promise<string | null>;
 }

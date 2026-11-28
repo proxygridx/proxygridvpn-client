@@ -35,6 +35,16 @@ describe('userMessage', () => {
     ).toEqual(ERROR_MESSAGES.clientNotAllowed);
   });
 
+  it('adds the network reason when the platform knows it', () => {
+    expect(
+      userMessage(
+        new CognitoError('NetworkError', 'x', 'a proxy blocked the connection')
+      )
+    ).toEqual(
+      `${ERROR_MESSAGES.unreachable} (Reason: a proxy blocked the connection.)`
+    );
+  });
+
   it('keeps other backend messages, for example limits', () => {
     expect(
       userMessage(new ProxyGridApiError(429, 'Daily key limit reached.'))

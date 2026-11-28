@@ -23,6 +23,8 @@
 // Usage: node account_signin_test.mjs <path to ProxyGridVPN.exe>
 // Requires Node 22 (global WebSocket and fetch).
 
+/* global fetch, WebSocket */
+/* eslint-disable n/no-process-exit */
 import {spawn} from 'node:child_process';
 import {setTimeout as sleep} from 'node:timers/promises';
 
@@ -43,7 +45,9 @@ const app = spawn(exe, [`--remote-debugging-port=${PORT}`], {
 async function pageTarget() {
   for (let i = 0; i < 60; i++) {
     try {
-      const list = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
+      const list = await (
+        await fetch(`http://127.0.0.1:${PORT}/json/list`)
+      ).json();
       const page = list.find(t => t.type === 'page' && t.webSocketDebuggerUrl);
       if (page) return page;
     } catch {
@@ -69,7 +73,9 @@ function connect(wsUrl) {
         `${msg.params.type}: ${msg.params.args.map(a => a.value ?? a.description ?? '').join(' ')}`
       );
     } else if (msg.method === 'Runtime.exceptionThrown') {
-      consoleLines.push(`exception: ${msg.params.exceptionDetails?.exception?.description ?? ''}`);
+      consoleLines.push(
+        `exception: ${msg.params.exceptionDetails?.exception?.description ?? ''}`
+      );
     }
   };
   const send = (method, params = {}) =>
@@ -85,19 +91,24 @@ function connect(wsUrl) {
       returnByValue: true,
     });
     if (r.result?.exceptionDetails) {
-      throw new Error(r.result.exceptionDetails.exception?.description ?? 'evaluation failed');
+      throw new Error(
+        r.result.exceptionDetails.exception?.description ?? 'evaluation failed'
+      );
     }
     return r.result?.result?.value;
   };
   return new Promise((resolve, reject) => {
-    ws.onopen = () => resolve({send, evaluate, consoleLines, close: () => ws.close()});
+    ws.onopen = () =>
+      resolve({send, evaluate, consoleLines, close: () => ws.close()});
     ws.onerror = () => reject(new Error('could not connect to the app page'));
   });
 }
 
 const failures = [];
 function check(name, ok, detail = '') {
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`);
+  console.log(
+    `${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`
+  );
   if (!ok) failures.push(name);
 }
 
@@ -140,8 +151,28 @@ try {
     return out;
   })()`);
   console.log('  renderer probe:', JSON.stringify(raw));
-  check('renderer reaches Cognito', typeof raw.status === 'number', raw.error ?? `HTTP ${raw.status}`);
-  check('renderer reaches the ProxyGrid API', typeof raw.apiStatus === 'number', raw.apiError ?? `HTTP ${raw.apiStatus}`);
+  check(
+    'renderer reaches Cognito',
+    typeof raw.status === 'number',
+    raw.error ?? `HTTP ${raw.status}`
+  );
+  check(
+    'renderer reaches the ProxyGrid API',
+    typeof raw.apiStatus === 'number',
+    raw.apiError ?? `HTTP ${raw.apiStatus}`
+  );
+
+  // The main-process diagnosis used when the renderer cannot connect. On a working network it
+  // reaches Cognito itself and says so.
+  const diagnosis = await cdp.evaluate(`(async () => JSON.parse(
+    await window.electron.methodChannel.invoke('invoke-method', 'DiagnoseConnection',
+      JSON.stringify({url: 'https://cognito-idp.ap-northeast-1.amazonaws.com/'}))
+  ).reason)()`);
+  check(
+    'connection diagnosis reaches Cognito from the main process',
+    typeof diagnosis === 'string' && diagnosis.includes('works from the app itself'),
+    String(diagnosis)
+  );
 
   // 2. The app's real sign-in with a made-up account.
   await cdp.evaluate(`(() => {
@@ -160,8 +191,16 @@ try {
     );
   }
   console.log(`  sign-in result: ${JSON.stringify(error)}`);
-  check('sign-in reaches Cognito (no network error)', !!error && error !== NETWORK_ERROR, error ?? 'no result');
-  check('sign-in reports incorrect credentials', /incorrect/i.test(error ?? ''), error ?? '');
+  check(
+    'sign-in reaches Cognito (no network error)',
+    !!error && error !== NETWORK_ERROR,
+    error ?? 'no result'
+  );
+  check(
+    'sign-in reports incorrect credentials',
+    /incorrect/i.test(error ?? ''),
+    error ?? ''
+  );
   if (failures.length) {
     console.log('  --- renderer console ---');
     for (const line of cdp.consoleLines.slice(-40)) console.log(`  ${line}`);
