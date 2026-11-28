@@ -69,6 +69,12 @@ export interface VpnKeyAccess {
   ss_url?: string;
 }
 
+/** A region with an active VPN node (GET /vpn/plans). */
+export interface ActiveRegion {
+  region: string;
+  label: string;
+}
+
 export interface VpnPlan {
   id: string;
   name: string;
@@ -185,7 +191,8 @@ export class ProxyGridApi {
     return this.request('DELETE', `/vpn/keys/${encodeURIComponent(keyId)}`);
   }
 
-  plans(): Promise<{plans: VpnPlan[]}> {
+  /** Plans, and the regions that have an active VPN node right now. */
+  plans(): Promise<{plans: VpnPlan[]; regions?: ActiveRegion[]}> {
     return this.request('GET', '/vpn/plans');
   }
 
@@ -215,25 +222,39 @@ export class ProxyGridApi {
  * that this build does not know yet, labelled as the backend labels it.
  */
 export function regionList(
-  status: VpnStatus | null | undefined
+  status: VpnStatus | null | undefined,
+  activeRegions?: ReadonlyArray<ActiveRegion> | null
 ): Array<{region: string; label: string}> {
-  const out = PROXYGRID_REGIONS.map(r => ({
-    region: r.region,
-    label: status?.regions.find(s => s.region === r.region)?.label ?? r.label,
-  }));
-  for (const r of status?.regions ?? []) {
-    if (!out.some(o => o.region === r.region)) {
-      out.push({region: r.region, label: r.label || r.region});
-    }
+  // Regions with an active node, as the backend reports them.
+  if (activeRegions && activeRegions.length > 0) {
+    return activeRegions.map(r => ({
+      region: r.region,
+      label: r.label || r.region,
+    }));
   }
-  return out;
+  // Otherwise the regions that have a node (active or down) in the account status.
+  if (status?.regions?.length) {
+    const out: Array<{region: string; label: string}> = [];
+    for (const r of status.regions) {
+      if (!out.some(o => o.region === r.region)) {
+        out.push({region: r.region, label: r.label || r.region});
+      }
+    }
+    return out;
+  }
+  // Nothing loaded yet: the planned list, so the picker is not empty before sign-in.
+  return PROXYGRID_REGIONS.map(r => ({region: r.region, label: r.label}));
 }
 
 export function regionLabel(
   region: string,
-  status: VpnStatus | null | undefined
+  status: VpnStatus | null | undefined,
+  activeRegions?: ReadonlyArray<ActiveRegion> | null
 ): string {
-  return regionList(status).find(r => r.region === region)?.label ?? region;
+  return (
+    regionList(status, activeRegions).find(r => r.region === region)?.label ??
+    region
+  );
 }
 
 /** True for keys served by the ProxyGrid dynamic-key endpoint. */
