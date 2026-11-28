@@ -14,6 +14,7 @@
 
 import {
   isProxyGridKey,
+  ActiveRegion,
   PROXYGRID_REGIONS,
   ProxyGridApi,
   regionLabel,
@@ -28,6 +29,8 @@ import {ServerAlreadyAdded} from '../../model/errors';
 export interface ProxyGridAccountState {
   session: SessionState;
   status: VpnStatus | null;
+  /** Regions with an active node (GET /vpn/plans), or null before they are loaded. */
+  activeRegions: ActiveRegion[] | null;
   loading: boolean;
   error: string | null;
   selectedRegion: string;
@@ -79,6 +82,7 @@ export class ProxyGridAccount {
     this.state = {
       session: session.state,
       status: null,
+      activeRegions: null,
       loading: false,
       error: null,
       selectedRegion: region,
@@ -143,20 +147,30 @@ export class ProxyGridAccount {
       this.inflight = (async () => {
         this.update({loading: true});
         try {
-          const status = await this.withAuthRetry(() => this.api.status());
+          const [status, activeRegions] = await Promise.all([
+            this.withAuthRetry(() => this.api.status()),
+            // The active-region list is optional: keep the last one if it fails.
+            this.api
+              .plans()
+              .then(p => p.regions ?? null)
+              .catch(() => this.state.activeRegions),
+          ]);
           this.lastStatusAt = this.now();
-          // Only some regions may be live (Tokyo first). If the saved choice is not one of
-          // them, move to the first live region so one tap connects.
-          const live = status.regions.filter(r => r.node_status === 'active');
-          if (
-            live.length > 0 &&
-            !status.regions.some(r => r.region === this.state.selectedRegion)
-          ) {
-            this.prefs.set(SELECTED_REGION_PREF, live[0].region);
-            this.state = {...this.state, selectedRegion: live[0].region};
+          // Only some regions are live. If the saved choice is not one of them, move to the
+          // first live region so one tap connects.
+          const live =
+            activeRegions && activeRegions.length > 0
+              ? activeRegions.map(r => r.region)
+              : status.regions
+                  .filter(r => r.node_status === 'active')
+                  .map(r => r.region);
+          if (live.length > 0 && !live.includes(this.state.selectedRegion)) {
+            this.prefs.set(SELECTED_REGION_PREF, live[0]);
+            this.state = {...this.state, selectedRegion: live[0]};
           }
           this.update({
             status,
+            activeRegions,
             error: null,
             stale: false,
             serverId: this.findServerForRegion(this.state.selectedRegion),

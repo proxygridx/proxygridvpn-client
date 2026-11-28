@@ -695,31 +695,33 @@ export class HomeView extends LitElement {
         ${this.t('proxygridvpn-location', 'Location')}
       </p>
       <div class="regions">
-        ${regionList(this.account?.status).map(({region, label}) => {
-          const rs = statusByRegion.get(region);
-          const up = rs?.node_status === 'active';
-          const down = rs?.node_status === 'down';
-          const available = !!rs;
-          const meta = up
-            ? this.t('proxygridvpn-region-online', 'Online')
-            : down
-              ? this.t('proxygridvpn-region-degraded', 'Degraded')
-              : this.t('proxygridvpn-region-soon', 'Coming soon');
-          return html`<button
-            class="region"
-            aria-pressed=${this.account?.selectedRegion === region
-              ? 'true'
-              : 'false'}
-            ?disabled=${!available && !!this.account?.status}
-            @click=${() => emit(this, 'ProxyGridSelectRegion', {region})}
-          >
-            <span class=${classMap({dot: true, up, down})}></span>
-            <span>
-              <div class="name">${label}</div>
-              <div class="meta">${meta}</div>
-            </span>
-          </button>`;
-        })}
+        ${regionList(this.account?.status, this.account?.activeRegions).map(
+          ({region, label}) => {
+            const rs = statusByRegion.get(region);
+            const up = rs?.node_status === 'active';
+            const down = rs?.node_status === 'down';
+            const available = !!rs;
+            const meta = up
+              ? this.t('proxygridvpn-region-online', 'Online')
+              : down
+                ? this.t('proxygridvpn-region-degraded', 'Degraded')
+                : this.t('proxygridvpn-region-soon', 'Coming soon');
+            return html`<button
+              class="region"
+              aria-pressed=${this.account?.selectedRegion === region
+                ? 'true'
+                : 'false'}
+              ?disabled=${!available && !!this.account?.status}
+              @click=${() => emit(this, 'ProxyGridSelectRegion', {region})}
+            >
+              <span class=${classMap({dot: true, up, down})}></span>
+              <span>
+                <div class="name">${label}</div>
+                <div class="meta">${meta}</div>
+              </span>
+            </button>`;
+          }
+        )}
       </div>
     </div>`;
   }

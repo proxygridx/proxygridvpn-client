@@ -142,7 +142,15 @@ describe('formatBytes', () => {
     expect(formatBytes(-1)).toEqual('—');
   });
 
-  it('lists backend regions this build does not know yet', () => {
+  it('lists the active regions from /vpn/plans when known', () => {
+    const regions = regionList(null, [
+      {region: 'ap-northeast-1', label: 'Tokyo'},
+      {region: 'ap-northeast-2', label: 'Seoul'},
+    ]);
+    expect(regions.map(r => r.label)).toEqual(['Tokyo', 'Seoul']);
+  });
+
+  it('lists only regions that have a node, including ones this build does not know', () => {
     const regions = regionList({
       regions: [
         {
@@ -161,13 +169,11 @@ describe('formatBytes', () => {
         },
       ],
     } as unknown as VpnStatus);
-    expect(regions.map(r => r.label)).toEqual([
-      'Tokyo',
-      'Seoul',
-      'Virginia',
-      'Frankfurt',
-      'Singapore',
-    ]);
+    expect(regions.map(r => r.label)).toEqual(['Virginia', 'Singapore']);
+  });
+
+  it('falls back to the planned list before anything has loaded', () => {
+    expect(regionList(null).length).toBeGreaterThan(0);
   });
 });
 
