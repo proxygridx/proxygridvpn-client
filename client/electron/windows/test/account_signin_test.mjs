@@ -26,6 +26,7 @@
 /* global fetch, WebSocket */
 /* eslint-disable n/no-process-exit */
 import {spawn} from 'node:child_process';
+import {randomBytes} from 'node:crypto';
 import {setTimeout as sleep} from 'node:timers/promises';
 
 const exe = process.argv[2];
@@ -34,8 +35,21 @@ if (!exe) {
   process.exit(2);
 }
 const PORT = 9333;
-const PROBE_EMAIL = 'ci-signin-probe@proxygrid.invalid';
-const NETWORK_ERROR = 'Could not reach the sign-in service.';
+// A made-up account that is unique per run, job and attempt, so parallel runs never share a
+// username and Cognito's lockout for one username ("Password attempts exceeded") is not hit.
+const PROBE_EMAIL = [
+  'ci',
+  process.env.GITHUB_RUN_ID ?? 'local',
+  process.env.GITHUB_JOB ?? 'job',
+  process.env.RUNNER_ARCH ?? process.arch,
+  randomBytes(6).toString('hex'),
+]
+  .join('-')
+  .toLowerCase()
+  .replace(/[^a-z0-9-]/g, '') + '@example.invalid';
+// What the app shows when it could not reach Cognito: the sign-in client's own message, or the
+// shared "ProxyGrid is unreachable" wording the account screen uses.
+const NETWORK_FAILURE = /could not reach|unreachable/i;
 
 const app = spawn(exe, [`--remote-debugging-port=${PORT}`], {
   stdio: 'ignore',
@@ -193,7 +207,9 @@ try {
   console.log(`  sign-in result: ${JSON.stringify(error)}`);
   check(
     'sign-in reaches Cognito (no network error)',
-    !!error && error !== NETWORK_ERROR,
+    // Any answer from Cognito counts here, including its lockout ("Password attempts
+    // exceeded"); only a network failure or no answer fails.
+    !!error && !NETWORK_FAILURE.test(error),
     error ?? 'no result'
   );
   check(
