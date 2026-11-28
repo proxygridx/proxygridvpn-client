@@ -170,3 +170,32 @@ describe('formatBytes', () => {
     ]);
   });
 });
+
+describe('ProxyGridApi handoff', () => {
+  it('posts the PKCE challenge to /auth/handoff', async () => {
+    const {fn, calls} = recordingFetch(200, {
+      code: 'c',
+      sub: 's',
+      expires_in: 120,
+    });
+    const api = new ProxyGridApi(async () => 'tok', 'https://api.test', fn);
+    await api.createHandoff('chal');
+    expect(calls[0].url).toEqual('https://api.test/auth/handoff');
+    expect(calls[0].init.method).toEqual('POST');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({
+      target: 'browser',
+      code_challenge: 'chal',
+      code_challenge_method: 'S256',
+    });
+  });
+
+  it('keeps the error code from the backend', async () => {
+    const {fn} = recordingFetch(403, {
+      error: {code: 'client_not_allowed', message: 'no'},
+    });
+    const api = new ProxyGridApi(async () => 'tok', 'https://api.test', fn);
+    await expectAsync(api.createHandoff('chal')).toBeRejectedWith(
+      jasmine.objectContaining({status: 403, code: 'client_not_allowed'})
+    );
+  });
+});

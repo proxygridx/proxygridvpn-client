@@ -20,6 +20,7 @@ import {
   ProxyGridApiError,
   VpnStatus,
 } from './api';
+import {userMessage} from './errors';
 import {ProxyGridSession, SessionState} from './session';
 import {ServerAlreadyAdded} from '../../model/errors';
 
@@ -298,6 +299,5 @@ export function isQuotaBlocked(
 }
 
 function errorMessage(e: unknown): string {
-  if (e instanceof Error) return e.message;
-  return String(e);
+  return userMessage(e);
 }

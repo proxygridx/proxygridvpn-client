@@ -41,4 +41,16 @@ export interface OutlinePlatform {
   // OS keychain/keystore for access keys and the account session. Undefined when the platform
   // has none (browser dev build); local storage is used then.
   getSecretBackend?(): SecretBackend | undefined;
+
+  // Desktop-only integration with ProxyGrid Browser (sign-in handoff). Undefined on mobile.
+  getDesktopIntegration?(): DesktopIntegration | undefined;
+}
+
+export interface DesktopIntegration {
+  /** Native "Sign in to ProxyGrid Browser as <email>?" dialog; true only on Allow. */
+  confirmHandoff(email: string): Promise<boolean>;
+  /** Opens a proxygrid-browser:// link; false if ProxyGrid Browser is not installed. */
+  openBrowserLink(url: string): Promise<boolean>;
+  /** Why a request to ProxyGrid sign-in or the API failed, or null if it now works. */
+  diagnoseConnection(url: string): Promise<string | null>;
 }

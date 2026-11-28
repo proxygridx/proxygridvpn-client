@@ -18,8 +18,11 @@ import {OperationTimedOut} from '@outline/infrastructure/timeout_promise';
 import {Clipboard} from './clipboard';
 import {EnvironmentVariables} from './environment';
 import * as config from './outline_server_repository/config';
+import {DesktopIntegration} from './platform';
 import {ProxyGridAccount} from './proxygrid/account';
-import {isProxyGridKey} from './proxygrid/api';
+import {isProxyGridKey, ProxyGridApi} from './proxygrid/api';
+import {userMessage} from './proxygrid/errors';
+import {handleHandoffLink, isHandoffLink} from './proxygrid/handoff';
 import {ProxyGridSession} from './proxygrid/session';
 import {Settings, SettingsKey, Appearance} from './settings';
 import {Updater} from './updater';
@@ -886,6 +889,7 @@ export class App {
   //#region ProxyGrid
 
   private proxyGrid?: ProxyGridAccount;
+  private handoffHandler?: (url: string) => Promise<void>;
 
   private isProxyGridServer(serverId: string): boolean {
     const key = this.serverRepo.getAccessKey(serverId);
@@ -927,7 +931,7 @@ export class App {
         await fn();
       } catch (e) {
         console.error('ProxyGrid action failed', e);
-        account.reportError(e instanceof Error ? e.message : String(e));
+        account.reportError(userMessage(e));
       } finally {
         this.rootEl.proxyGridBusy = false;
       }
@@ -993,6 +997,27 @@ export class App {
     window.document.addEventListener('pause', () => account.stop());
   }
 
+  /**
+   * Enables the sign-in handoff to ProxyGrid Browser (desktop). Nothing is requested from the
+   * backend unless the signed-in user clicks Allow in the native confirmation dialog.
+   */
+  attachHandoff(
+    session: ProxyGridSession,
+    api: ProxyGridApi,
+    desktop: DesktopIntegration
+  ) {
+    this.handoffHandler = async (url: string) => {
+      await handleHandoffLink(url, {
+        signedInEmail: () =>
+          session.state.kind === 'signedIn' ? session.state.email : null,
+        confirm: email => desktop.confirmHandoff(email),
+        requestCode: challenge => api.createHandoff(challenge),
+        openExternal: link => desktop.openBrowserLink(link),
+        notify: message => this.rootEl.showToast(message, 8000),
+      });
+    };
+  }
+
   private async connectProxyGridRegion() {
     if (!this.proxyGrid) return;
     const serverId = await this.proxyGrid.ensureRegionServer();
@@ -1024,6 +1049,15 @@ export class App {
 
   private registerUrlInterceptionListener(urlInterceptor: UrlInterceptor) {
     urlInterceptor.registerListener(async url => {
+      if (isHandoffLink(url)) {
+        // Desktop only: the handler is attached by attachHandoff on Electron.
+        if (this.handoffHandler) {
+          await this.handoffHandler(url);
+        } else {
+          console.debug('Ignoring handoff link on a platform without handoff');
+        }
+        return;
+      }
       if (!isOutlineAccessKey(unwrapInvite(url))) {
         // This check is necessary to ignore empty and malformed install-referrer URLs in Android
         // while allowing ss://, ssconf:// and invite URLs.

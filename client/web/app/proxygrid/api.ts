@@ -92,7 +92,9 @@ export interface PublicPricing {
 export class ProxyGridApiError extends Error {
   constructor(
     readonly status: number,
-    message: string
+    message: string,
+    /** The backend's machine-readable error code, e.g. "client_not_allowed". */
+    readonly code?: string
   ) {
     super(message);
     this.name = 'ProxyGridApiError';
@@ -152,7 +154,7 @@ export class ProxyGridApi {
     }
     if (!response.ok) {
       const obj = (json ?? {}) as {error?: unknown; message?: unknown};
-      const nested = (obj.error ?? {}) as {message?: unknown};
+      const nested = (obj.error ?? {}) as {message?: unknown; code?: unknown};
       const msg =
         typeof obj.error === 'string'
           ? obj.error
@@ -161,7 +163,8 @@ export class ProxyGridApi {
             : typeof obj.message === 'string'
               ? obj.message
               : `Request failed (${response.status}).`;
-      throw new ProxyGridApiError(response.status, msg);
+      const code = typeof nested.code === 'string' ? nested.code : undefined;
+      throw new ProxyGridApiError(response.status, msg, code);
     }
     return json as T;
   }
@@ -184,6 +187,22 @@ export class ProxyGridApi {
 
   plans(): Promise<{plans: VpnPlan[]}> {
     return this.request('GET', '/vpn/plans');
+  }
+
+  /**
+   * Asks for a one-time handoff code bound to ProxyGrid Browser's PKCE challenge
+   * (POST /auth/handoff). Only call this after the user allowed the handoff.
+   */
+  createHandoff(
+    challenge: string
+  ): Promise<{code: string; sub: string; expires_in: number}> {
+    return this.request('POST', '/auth/handoff', {
+      body: {
+        target: 'browser',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+      },
+    });
   }
 
   publicPricing(): Promise<PublicPricing> {
